@@ -1,15 +1,21 @@
 # Copyright (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import asyncio
 import os
+import inspect
+import json
+import logging
+import time
 import uvicorn
 from fastapi import FastAPI
 from fastapi import HTTPException
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from .chain import process_chunks
+from .metrics import SystemMonitor
 import httpx
 from typing import List
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -60,6 +66,12 @@ class Message(BaseModel):
 class QuestionRequest(BaseModel):
     conversation_messages: List[Message]
     max_tokens: int
+    
+class TimedStreamingResponse(StreamingResponse):
+    def __init__(self, content, **kwargs):
+        self.start_time = time.time()
+        self.end_time = None
+        super().__init__(content, **kwargs)
 
 
 @app.get("/health")
@@ -103,30 +115,39 @@ async def get_llm_model():
         raise HTTPException(status_code=503, detail="LLM_MODEL is not set")
     return {"status": "success", "llm_model": llm_model}
 
+
+
+async def add_timing_to_generator(generator_func, *args, **kwargs):
+    """Add timing to a generator function"""
+    start_time = time.time()
+    
+    async def timed_generator():
+        last_chunk_time = start_time
+        
+        try:
+            async for chunk in generator_func(*args, **kwargs):
+                last_chunk_time = time.time()
+                yield chunk
+            
+            # Add timing info
+            total_time = round((last_chunk_time - start_time) * 1000, 2)
+            timing_data = f"data: {json.dumps({'response_time_ms': total_time, 'finished': True})}\n\n"
+            yield timing_data
+            
+        except Exception as e:
+            error_time = time.time()
+            error_response_time = round((error_time - start_time) * 1000, 2)
+            error_data = f"data: {json.dumps({'error': str(e), 'response_time_ms': error_response_time})}\n\n"
+            yield error_data
+    
+    return timed_generator()
+
 @app.post("/chat", response_class=StreamingResponse)
 async def query_chain(payload: QuestionRequest):
-    """
-    Handles POST requests to the /chat endpoint.
-
-    This endpoint receives a conversation history along with the question in the form of a JSON payload, validates
-    the input, and returns a streaming response with the processed chunks of the question text.
-
-    Args:
-        payload (QuestionRequest): The request payload containing conversation history with the input question text
-        max_tokens (int): The maximum number of tokens to process. Defaults to 512 if not provided.
-        or set to 1024 if provided.
-
-    Returns:
-        StreamingResponse: A streaming response that delivers processed chunks generated from both the conversation
-        history and the user question.
-
-    Raises:
-        HTTPException: If the input question text is empty or not provided, a 422 status code is returned.
-    """
     try:
-        # conversation_messages contain conversation history with roles and content along with current question
         conversation_messages = payload.conversation_messages
-        question_text = conversation_messages[-1].content  # latest user message
+        logging.info(conversation_messages)
+        question_text = conversation_messages[-1].content
 
         max_tokens = payload.max_tokens if payload.max_tokens else 512
         if max_tokens > 1024:
@@ -134,16 +155,40 @@ async def query_chain(payload: QuestionRequest):
         if not question_text or question_text == "":
             raise HTTPException(status_code=422, detail="Question is required")
         
-        # Additional validation
         if len(question_text.strip()) == 0:
             raise HTTPException(status_code=422, detail="Question cannot be empty or whitespace only")
-            
-        return StreamingResponse(process_chunks(conversation_messages, max_tokens), media_type="text/event-stream")
+        
+        # Add timing to the generator
+        timed_generator = await add_timing_to_generator(
+            process_chunks, 
+            conversation_messages, 
+            max_tokens
+        )
+        
+        return StreamingResponse(timed_generator, media_type="text/event-stream")
+        
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+  
+    
+@app.get("/metrics", tags=["metrics"], summary=["Get system metrics"])
+async def get_system_metrics(ram_type: str = "percent"):
+
+    try:
+        monitor = SystemMonitor()
+        return StreamingResponse(monitor.return_all(), media_type="text/event-stream")
+        
+    
+    except Exception as e:
+        logging.error(f"Error getting system metrics. {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error getting system metrics: {str(e)}",
+        )
+    
 
 FastAPIInstrumentor.instrument_app(app)
 
