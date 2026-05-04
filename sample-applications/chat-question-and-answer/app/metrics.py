@@ -1,6 +1,7 @@
 import asyncio
 import inspect
 import json
+import os
 import time
 import psutil
 import subprocess
@@ -50,10 +51,12 @@ class SystemMonitor:
         
     def get_npu_usage(self):
         try:
-            result = subprocess.run(['intel_npu_top', '-l', '1', '-s', '1'], capture_output=True, text=True, timeout=5)
+            cwd = os.getcwd()
+            path =f"{cwd}/../../../tools/npu-monitor-tool/npu-monitor-tool.py"
+            result = subprocess.run(f"sudo Python3 {path} -i 1000 | grep 'utilization'",  shell=True, capture_output=True, text=True, timeout=5)
             lines = result.stdout.split('\n')
             for line in lines:
-                if 'Render/3D' in line:
+                if 'utilization' in line:
                     parts = line.split()
                     usage = float(parts[-1].strip('%'))
                     return float(usage)
@@ -77,33 +80,4 @@ class SystemMonitor:
             data = {"timestamp": timestamp_n, "cpu": cpu, "gpu": gpu, "npu": npu, "ram": ram}
             yield f"data: {json.dumps(data)}\n\n"  # SSE format
             await asyncio.sleep(1)
-
-        # self.timestamp.append(timestamp_n)
-        # self.cpu_usage_history.append({**cpu})
-        # self.ram_usage_history.append({**ram})
-        # self.gpu_usage_history.append({**gpu})
-        # self.npu_usage_history.append({**npu})
-        
-
-    
-    # def get_last_10__metrics(self):
-    #     try:
-    #         # return {
-    #         #     "timestamps": list(self.timestamp),
-    #         #     "cpu": list(self.cpu_usage_history),
-    #         #     "ram": list(self.ram_usage_history),
-    #         #     "gpu": list(self.gpu_usage_history),
-    #         #     "npu": list(self.npu_usage_history)
-    #         # }
-    #         results = await return_all()
-    #         return StreamingResponse(results, media_type="text/event-stream")
-            
-    #     except Exception as e:
-    #         print(f"Error retrieving metrics: {e}")
-    #         return {
-    #             "cpu": [],
-    #             "ram": [],
-    #             "gpu": [],
-    #             "npu": []
-    #         }
 

@@ -174,7 +174,7 @@ async def query_chain(payload: QuestionRequest):
 
   
     
-@app.get("/metrics", tags=["metrics"], summary=["Get system metrics"])
+@app.get("/metrics", tags=["metrics"], summary="Get system metrics")
 async def get_system_metrics(ram_type: str = "percent"):
 
     try:

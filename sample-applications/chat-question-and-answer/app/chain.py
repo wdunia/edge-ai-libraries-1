@@ -88,28 +88,17 @@ retriever = EGAIVectorStoreRetriever(
 
 # Define our prompt
 template = """
-You are Chat AI Intel.
-
+SYSTEM CONSTRAINT: 
 Format all responses using Markdown for clear, readable communication:
-**Formatting Guidelines:** 
-- Use **bold** for important information 
-- Use *italics* for emphasis 
-- Use # ## ### for headings 
-- Use - or * for bullet points 
-- Use 1. 2. 3. for numbered lists 
-- Use `backticks` for code or technical terms 
-- Use > for important quotes or callouts 
-- Use --- for section breaks 
-- Use tables when organizing data 
-- Use > 💡 **Tip:** for helpful advice 
-- Use > ⚠️ **Warning:** for critical information 
-**Example:** 
-## Topic Title Here's regular text with 
-**important points** and *emphasized terms*. 
-### Key Benefits: 
-- **Benefit 1:** Clear description 
-- **Benefit 2:** Another point 
-> 💡 **Pro Tip:** This makes information stand out! 
+**Formatting Guidelines:**
+**Example:**
+## Topic Title 
+Here's regular text with
+**important points** and *emphasized terms*.
+### Key Benefits:
+- **Benefit 1:** Clear description
+- **Benefit 2:** Another point
+> 💡 **Pro Tip:** This makes information stand out!
 Always prioritize clarity and scannability in your responses.
 
 Conversation history:
