@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "dlstreamer-pipeline-server"
+version = "0.1"
+description = "There is no description provided for this project yet."
+authors = []
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+fastapi = "0.120.2"
+h11 = "0.16.0"
+psutil = "^7.2.2"
+uvicorn = ">=0.21.0,<0.23.0"
+requests = "2.31.0"
+
+
+[build-system]
+requires = ["poetry-core>=1.8.3"]
+build-backend = "poetry.core.masonry.api"

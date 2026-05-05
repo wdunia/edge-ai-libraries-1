@@ -12,6 +12,57 @@ info:
 servers:
   - url: /
 paths:
+  /stream/{stream_id}:
+    get:
+      description: Return stream name
+      operationId: video_path_by_id_get
+      parameters:
+        - explode: false
+          in: path
+          name: stream_id
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Pipeline'
+                type: array
+          description: Success
+      x-openapi-router-controller: src.rest_api.endpoints.Endpoints
+  /metadata/{file_path}/{file_path2}:
+    get:
+      description: Return content of metadata file
+      operationId: jsonl_get
+      parameters:
+        - explode: false
+          in: path
+          name: file_path
+          required: true
+          schema:
+            type: string
+          style: simple
+        - explode: false
+          in: path
+          name: file_path2
+          required: true
+          schema:
+            type: string
+          style: simple
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Pipeline'
+                type: array
+          description: Success
+      x-openapi-router-controller: src.rest_api.endpoints.Endpoints
   /models:
     get:
       description: Return supported models

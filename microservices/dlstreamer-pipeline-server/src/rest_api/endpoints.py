@@ -4,6 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+import json
 import connexion
 import requests
 import time
@@ -13,6 +14,7 @@ from http import HTTPStatus
 from src.common.log import get_logger
 from src.model_updater import ModelRegistryClient, ModelQueryParams
 from src.server.pipeline import Pipeline
+from urllib.parse import unquote
 
 logger = get_logger('REST API Endpoints')
 
@@ -23,7 +25,11 @@ class Endpoints:
 
     pipeline_server_manager = None
     model_registry_client: ModelRegistryClient = None
+    get_url = {}
 
+    def __init__(self):
+        pass
+    
     def models_get():  # noqa: E501
         """models_get
 
@@ -197,6 +203,7 @@ class Endpoints:
             logger.error('pipelines_instance_id_status_get %s', error)
             return ('Unexpected error', HTTPStatus.INTERNAL_SERVER_ERROR)
 
+    @staticmethod
     def pipelines_name_version_post(name, version):  # noqa: E501
         """pipelines_name_version_post
 
@@ -219,6 +226,8 @@ class Endpoints:
             try:
                 pipeline_id, err = Endpoints.pipeline_server_manager.start_instance(
                     name, version, connexion.request.get_json())
+                full_json = connexion.request.get_json()
+                Endpoints.get_url = {f"{pipeline_id}": f"{full_json["destination"]["frame"]["peer-id"]}"}
                 if pipeline_id is not None:
                     return pipeline_id
                 return (err, HTTPStatus.BAD_REQUEST)
@@ -246,7 +255,6 @@ class Endpoints:
 
         :rtype: None
         """
-
         logger.debug(
             "POST on /pipelines/{name}/{version}/{instance_id}".format(name=name, version=str(version), instance_id=instance_id))
         if connexion.request.is_json:
@@ -433,3 +441,41 @@ class Endpoints:
                 return (resp_body, HTTPStatus.INTERNAL_SERVER_ERROR)
 
         return ('Invalid Request, Body must be valid JSON', HTTPStatus.BAD_REQUEST)
+    
+    def jsonl_get(file_path, file_path2):
+        resp_body = {"status": "error", "message": ""}
+        try:
+            logger.info("getting results.jsonl")
+            file = f"/{file_path}/{file_path2}"
+            logger.info(file_path)
+            file_path = unquote(file_path)
+            logger.info(f"unquotted_path: {file_path}")
+            if os.path.exists(file):
+                with open(file, "r") as file:
+                    content = file.read()
+                logger.info(content)
+                return content
+            return "File does not exist"
+        except Exception as e:
+            logger.error(f"Exception occured: {e}")
+            resp_body["message"] = e
+            return (resp_body, HTTPStatus.INTERNAL_SERVER_ERROR)
+        
+    def video_path_by_id_get(stream_id):
+        resp_body = {"status": "error", "message": ""}
+        try:
+            logger.info(f"getting path of {stream_id}")
+            
+            if stream_id in Endpoints.get_url:
+                path = Endpoints.get_url[stream_id]
+                
+                logger.info(f"result: {path}")
+                return path
+            else:
+                resp_body["message"] = f"Stream ID {stream_id} not found"
+                return (resp_body, HTTPStatus.NOT_FOUND)
+        except Exception as e:
+            logger.error(f"Exception occured: {e}")
+            resp_body["message"] = str(e)
+            return (resp_body, HTTPStatus.INTERNAL_SERVER_ERROR)
+
