@@ -3,7 +3,7 @@
 
 import { KeyboardEventHandler, SyntheticEvent, useEffect, useRef, useState } from 'react'
 import styleClasses from "../../styles/components/conversation.module.scss"
-import { ActionIcon, Group, Textarea, Title, rem, Anchor } from '@mantine/core'
+import { ActionIcon, Group, Textarea, rem, Anchor } from '@mantine/core'
 import { IconArrowRight, IconFilePlus, IconMessagePlus } from '@tabler/icons-react'
 import { conversationSelector, doConversation, newConversation, fetchModelName } from '../../redux/Conversation/ConversationSlice'
 import { ConversationMessage } from '../Message/conversationMessage'
@@ -15,7 +15,7 @@ import DataSource from '../Drawer/DataSource'
 import { ConversationSideBar } from './ConversationSideBar'
 
 type ConversationProps = {
-  title:string
+  title: string
 }
 
 const Conversation = ({ title }: ConversationProps) => {
@@ -40,7 +40,7 @@ const Conversation = ({ title }: ConversationProps) => {
     content: "You are helpful assistant",
   };
 
-    // Fetch model name
+  // Fetch model name
   useEffect(() => {
     dispatch(fetchModelName(undefined));
   }, [dispatch]);
@@ -64,12 +64,12 @@ const Conversation = ({ title }: ConversationProps) => {
       time: getCurrentTimeStamp()
     };
     let messages: Partial<Message>[] = [];
-    if(selectedConversation){
-      messages  = selectedConversation.Messages.map((message: any) => {
-        return {role:message.role, content:message.content}
+    if (selectedConversation) {
+      messages = selectedConversation.Messages.map((message: any) => {
+        return { role: message.role, content: message.content }
       })
     }
-    
+
     messages = [systemPrompt, ...messages]
 
     dispatch(doConversation({
@@ -107,24 +107,9 @@ const Conversation = ({ title }: ConversationProps) => {
   }
   return (
     <div className={styleClasses.conversationWrapper}>
-      <ConversationSideBar title={title}/>
+      <ConversationSideBar onNewConversation={handleNewConversation} />
       <div className={styleClasses.conversationContent}>
         <div className={styleClasses.conversationContentMessages}>
-          <div className={styleClasses.conversationTitle}>
-            <Title order={3}>{selectedConversation?.title || ""} </Title>
-            <span className={styleClasses.spacer}></span>
-            <Group>
-              {selectedConversation && selectedConversation?.Messages.length > 0 && (
-                <ActionIcon onClick={handleNewConversation} disabled={!!(onGoingResults?.[selectedConversationId])} size={32} variant="default">
-                  <IconMessagePlus />
-                </ActionIcon>
-              )}
-              <ActionIcon onClick={openFileUpload} size={32} variant="default">
-                <IconFilePlus />
-              </ActionIcon>
-            </Group>
-          </div>
-
           <div className={styleClasses.historyContainer} ref={scrollViewport}>
 
             {!selectedConversation && (
@@ -133,10 +118,16 @@ const Conversation = ({ title }: ConversationProps) => {
               </>
             )}
 
-            {selectedConversation?.Messages.map((message: any) => {
-              return (<ConversationMessage key={`_ai`} date={message.time * 1000} human={message.role == MessageRole.User} message={message.content} />)
-            })
-            }
+            {selectedConversation?.Messages.map((message: any, index: number) => {
+              return (
+                <ConversationMessage
+                  key={`${message.role}_${message.time}_${index}`}
+                  date={message.time * 1000}
+                  human={message.role == MessageRole.User}
+                  message={message.content}
+                />
+              )
+            })}
 
             {/* Show ongoing AI response with blinking indicator inline with streaming text */}
             {(isGenerating[selectedConversationId] || onGoingResults?.[selectedConversationId]) && (
@@ -150,8 +141,8 @@ const Conversation = ({ title }: ConversationProps) => {
             )}
 
             {hasLLMResponse && (
-              <div style={{textAlign: 'right', paddingTop: '12px'}}>
-                <Anchor href={LLM_MODEL_URL} target="_blank" size="xs" style={{textDecoration: 'underline'}}>
+              <div style={{ textAlign: 'right', paddingTop: '12px' }}>
+                <Anchor href={LLM_MODEL_URL} target="_blank" size="xs" style={{ textDecoration: 'underline' }}>
                   {modelName}
                 </Anchor>
               </div>
@@ -160,16 +151,28 @@ const Conversation = ({ title }: ConversationProps) => {
 
           <div className={styleClasses.conversationActions}>
             <Textarea
-              radius="xl"
-              size="md"
-              placeholder="Ask a question"
+              classNames={{
+                root: styleClasses.promptRoot,
+                input: styleClasses.promptInput,
+                section: styleClasses.promptSection,
+              }}
+              placeholder="Ask a question..."
               ref={promptInputRef}
               onKeyDown={handleKeyDown}
               onChange={handleChange}
               value={prompt}
+              autosize
+              minRows={1}
+              maxRows={4}
               rightSectionWidth={42}
               rightSection={
-                <ActionIcon onClick={handleSubmit} size={32} radius="xl" variant="filled">
+                <ActionIcon
+                  className={styleClasses.sendButton}
+                  onClick={handleSubmit}
+                  size={28}
+                  radius={7}
+                  variant="filled"
+                >
                   <IconArrowRight style={{ width: rem(18), height: rem(18) }} stroke={1.5} />
                 </ActionIcon>
               }
