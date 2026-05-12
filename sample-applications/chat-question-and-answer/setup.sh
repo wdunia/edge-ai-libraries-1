@@ -68,6 +68,7 @@ export EMBEDDING_ENDPOINT_URL=http://tei-embedding-service
 export MAX_TOKENS=1024
 export APP_ENDPOINT_URL=/v1/chatqna
 export APP_DATA_PREP_URL=/v1/dataprep
+export APP_METRICS_URL=http://chatqna/metrics
 
 # Required environment variables for the ChatQnA backend
 export CHUNK_SIZE=1500

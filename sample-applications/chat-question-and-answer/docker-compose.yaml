@@ -122,6 +122,7 @@ services:
       - APP_ENDPOINT_URL=${APP_ENDPOINT_URL}
       - APP_DATA_PREP_URL=${APP_DATA_PREP_URL}
       - APP_MAX_TOKENS=${MAX_TOKENS}
+      - APP_METRICS_URL=${APP_METRICS_URL}
 
   minio-server:
     image: minio/minio:RELEASE.2025-02-07T23-21-09Z-cpuv1

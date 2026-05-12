@@ -131,13 +131,13 @@ async def add_timing_to_generator(generator_func, *args, **kwargs):
             
             # Add timing info
             total_time = round((last_chunk_time - start_time) * 1000, 2)
-            timing_data = f"data: {json.dumps({'response_time_ms': total_time, 'finished': True})}\n\n"
+            timing_data = f"data: \n{json.dumps({'response_time_ms': total_time, 'finished': True})}\n\n"
             yield timing_data
             
         except Exception as e:
             error_time = time.time()
             error_response_time = round((error_time - start_time) * 1000, 2)
-            error_data = f"data: {json.dumps({'error': str(e), 'response_time_ms': error_response_time})}\n\n"
+            error_data = f"data: \n{json.dumps({'error': str(e), 'response_time_ms': error_response_time})}\n\n"
             yield error_data
     
     return timed_generator()
@@ -175,7 +175,7 @@ async def query_chain(payload: QuestionRequest):
   
     
 @app.get("/metrics", tags=["metrics"], summary="Get system metrics")
-async def get_system_metrics(ram_type: str = "percent"):
+async def get_system_metrics(ram_type: str):
 
     try:
         monitor = SystemMonitor()

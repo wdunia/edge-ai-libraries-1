@@ -90,11 +90,17 @@ retriever = EGAIVectorStoreRetriever(
 template = """
 SYSTEM CONSTRAINT: 
 Format all responses using Markdown for clear, readable communication:
-**Formatting Guidelines:**
+Use # ## ### for Headings
+Use ** for bold
+Use * for italics
+Use ordered and unordered blit when needed
+Use ``` for code snippets
+Use --- for horizontal rule if needed
+
 **Example:**
 ## Topic Title 
 Here's regular text with
-**important points** and *emphasized terms*.
+**important points** and *emphasized terms.*
 ### Key Benefits:
 - **Benefit 1:** Clear description
 - **Benefit 2:** Another point
@@ -272,4 +278,11 @@ async def process_chunks(conversation_messages, max_tokens):
     }
 
     async for log in chain.astream(chain_input):
-        yield f"data: {log}\n\n"
+        if log == "\n":
+            yield f"data: \\n\\n\n\n"
+        elif log.endswith("\n"):
+            yield f"data: {log}\n\n"
+            yield f"data: \\n\\n\n\n"
+        else:
+            yield f"data: {log}\n\n"
+        #yield f"data: {log}\n\n"
