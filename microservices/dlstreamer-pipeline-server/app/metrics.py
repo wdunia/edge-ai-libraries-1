@@ -39,33 +39,15 @@ class SystemMonitor:
 
     def get_gpu_usage(self):
         try:
-            # result = subprocess.run(['intel-gpu-top', '-l', '1', '-s', '1'], capture_output=True, text=True, timeout=5)
-            # lines = result.stdout.split('\n')
-            # for line in lines:
-            #     if 'Render/3D' in line:
-            #         parts = line.split()
-            #         usage = float(parts[-1].strip('%'))
-            #         return float(usage)
-            # return "N/A"
-            number = random.randint(0, 100)
-            return f"{number:.1f}"
+            result = subprocess.run('curl -s http://metrics-manager:9273/metrics | grep gpu_utilization | awk "{print $2}"', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=5).stdout
+            return float(result)
         except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
             return "N/A"
         
     def get_npu_usage(self):
         try:
-            # cwd = os.getcwd()
-            # path =f"{cwd}/../../../tools/npu-monitor-tool/npu-monitor-tool.py"
-            # result = subprocess.run(f"sudo Python3 {path} -i 1000 | grep 'utilization'",  shell=True, capture_output=True, text=True, timeout=5)
-            # lines = result.stdout.split('\n')
-            # for line in lines:
-            #     if 'utilization' in line:
-            #         parts = line.split()
-            #         usage = float(parts[-1].strip('%'))
-            #         return float(usage)
-            # return "N/A"
-            number = random.randint(0, 100)
-            return f"{number:.1f}"
+            result = subprocess.run("curl -s http://metrics-manager:9273/metrics | grep npu_utilization{ | awk '{print $2}'", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=5).stdout
+            return float(result)
         except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
             return "N/A"
 
