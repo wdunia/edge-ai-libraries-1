@@ -88,9 +88,15 @@ retriever = EGAIVectorStoreRetriever(
 
 # Define our prompt
 template = """
+Reasoning: high
+Do not output your reasoning process, only the final output.
 SYSTEM CONSTRAINT: 
-Format all responses using Markdown for clear, readable communication:
-**Formatting Guidelines:**
+You have no access to the internet.
+Don't hesitate to ask questions when in doubt, especially when question is unclear.
+If You don't know the answer just say it.
+IMPORTANT: Format all responses using Markdown for clear, readable communication:
+
+
 **Example:**
 ## Topic Title 
 Here's regular text with
@@ -101,16 +107,8 @@ Here's regular text with
 > 💡 **Pro Tip:** This makes information stand out!
 Always prioritize clarity and scannability in your responses.
 
-Conversation history:
----------
-{history}
----------
-
----------
-Question/text: {question}
----------
-
-Answer:
+Conversation history: {history}
+prompt: {question}
 """
 
 
