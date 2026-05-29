@@ -38,31 +38,21 @@ class SystemMonitor:
 
     def get_gpu_usage(self):
         try:
-            result = subprocess.run(['intel-gpu-top', '-l', '1', '-s', '1'], capture_output=True, text=True, timeout=5)
-            lines = result.stdout.split('\n')
-            for line in lines:
-                if 'Render/3D' in line:
-                    parts = line.split()
-                    usage = float(parts[-1].strip('%'))
-                    return float(usage)
-            return "N/A"
+            bcs = subprocess.run('curl -s http://metrics-manager:9273/metrics | grep gpu_engine_usage_usage{engine | grep bcs | cut -d" " -f2', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
+            ccs = subprocess.run('curl -s http://metrics-manager:9273/metrics | grep gpu_engine_usage_usage{engine | grep ccs | cut -d" " -f2', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
+            rcs = subprocess.run('curl -s http://metrics-manager:9273/metrics | grep gpu_engine_usage_usage{engine | grep rcs | cut -d" " -f2', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
+            vcs = subprocess.run('curl -s http://metrics-manager:9273/metrics | grep gpu_engine_usage_usage{engine | grep vcs | cut -d" " -f2', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
+            vecs = subprocess.run('curl -s http://metrics-manager:9273/metrics | grep gpu_engine_usage_usage{engine | grep vecs | cut -d" " -f2', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
+            return {"bcs": float(bcs), "ccs": float(ccs), "rcs": float(rcs), "vcs": float(vcs), "vecs": float(vecs)}
         except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
             return "N/A"
         
     def get_npu_usage(self):
-        try:
-            cwd = os.getcwd()
-            path =f"{cwd}/../../../tools/npu-monitor-tool/npu-monitor-tool.py"
-            result = subprocess.run(f"sudo Python3 {path} -i 1000 | grep 'utilization'",  shell=True, capture_output=True, text=True, timeout=5)
-            lines = result.stdout.split('\n')
-            for line in lines:
-                if 'utilization' in line:
-                    parts = line.split()
-                    usage = float(parts[-1].strip('%'))
-                    return float(usage)
-            return "N/A"
-        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
-            return "N/A"
+        # try:
+        result = subprocess.run('curl -s http://metrics-manager:9273/metrics | grep npu_utilization{ | cut -d" " -f2', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
+        return float(result)
+        # except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
+        #     return "N/A"
 
 
     async def return_all(self, ram_type: str = "percent"):
