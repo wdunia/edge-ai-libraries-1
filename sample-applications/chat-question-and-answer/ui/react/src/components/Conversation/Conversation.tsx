@@ -14,8 +14,14 @@ import { useDisclosure } from '@mantine/hooks'
 import DataSource from '../Drawer/DataSource'
 import { ConversationSideBar } from './ConversationSideBar'
 
-const Conversation = () => {
 
+type ConversationProps = {
+  title:string
+}
+
+const Conversation = ({ title }: ConversationProps) => {
+
+  title = title //fix this
   const [prompt, setPrompt] = useState<string>("")
   const [hasLLMResponse, setHasLLMResponse] = useState<boolean>(false)
   const promptInputRef = useRef<HTMLTextAreaElement>(null)

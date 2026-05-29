@@ -38,6 +38,7 @@ services:
       - OTEL_SERVICE_VERSION=${OTLP_ENDPOINT:+${OTEL_SERVICE_VERSION}}
       - REQUESTS_CA_BUNDLE=${REQUESTS_CA_BUNDLE:-}
       - RERANKER_ENDPOINT=${RERANKER_ENDPOINT}
+      - HOST_IP=${HOST_IP}
     networks:
       - my_network
     volumes:

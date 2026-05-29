@@ -13,7 +13,6 @@ validate_input() {
 }
 
 tput clear
-set -e
 username=$(whoami)
 echo "=== UPDATE SYSTEM ==="
 sudo apt update && sudo apt upgrade -y
@@ -67,10 +66,23 @@ export MODEL_DOWNLOAD_PORT=8200
 export ALLOWED_HOSTS=*
 export REGISTRY="intel/"
 export TAG=latest
-export APP_METRICS_URL="http://$ip:8102/metrics"
+export APP_METRICS_URL="http://$ip:8100/metrics"
 
 export GETI_SERVER_SSL_VERIFY=False 
-tmux new-session -d -s model_download -c ../../../microservices/model-download "source scripts/run_service.sh up --plugins all --model-path /home/$username/host_path"
+
+tmux new-session -d -s metrics-manager "docker run --rm --privileged --name metrics-manager \
+  --net chat-question-and-answer_my_network \
+  --device /dev/dri \
+  -p 9090:9090 \
+  -p 9273:9273 \
+  -v /sys:/sys:ro \
+  -v /run:/run:ro \
+  --pid host \
+  intel/metrics-manager:2026.1.0-20260508-weekly"
+
+cd ../../../
+echo $PWD
+tmux new-session -d -s model_download -c $PWD/microservices/model-download "source scripts/run_service.sh up --plugins all --model-path /home/$username/host_path"
 
 while true; do
     response=$(curl -X GET "http://$ip:8200/api/v1/health")
@@ -82,9 +94,11 @@ while true; do
     fi
 done
 
-
-source setup.sh llm=OVMS embed=OVMS
-tmux new-session -d -s chatqna 'sg docker -c "docker compose up --build"'
+echo $PWD
+source $PWD/sample-applications/chat-question-and-answer/setup.sh llm=OVMS embed=OVMS
+cd $PWD/sample-applications/chat-question-and-answer/
+sg docker -c "docker compose up --build"
+#tmux new-session -d -s chatqna -c $PWD/sample-applications/chat-question-and-answer/ 'sg docker -c "docker compose up --build"'
 while true; do
     response=$(curl -X GET "http://$ip:8101/api/v1/health")
     if [[ $response = '[{"status":"healthy","details":"LLM model server is ready to serve"},{"status":"healthy","details":"Embedding model server is ready to serve"}]' ]]; then

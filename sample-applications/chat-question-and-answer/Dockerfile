@@ -42,7 +42,7 @@ RUN groupadd -g 1001 appuser && \
 # Install only runtime dependencies (added libpq5)
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
-    libjemalloc2 libpq5 && \
+    libjemalloc2 libpq5 curl gawk grep && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
