@@ -1,5 +1,5 @@
 import { AppShell, Group, Text, Badge, Grid, Paper } from "@mantine/core";
-
+import { LeftPanel } from "./components/LeftPanel";
 import { bg } from "./styles/theme";
 
 function App() {
@@ -34,7 +34,7 @@ function App() {
         <Grid rowGap="md" columnGap="md">
           <Grid.Col span={3}>
             <Paper p="md" h={700} radius="md" bg={bg.panel}>
-              Left panel
+              <LeftPanel/>
             </Paper>
           </Grid.Col>
 
