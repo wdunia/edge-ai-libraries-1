@@ -1,6 +1,7 @@
-import { AppShell, Group, Text, Badge, Grid, Paper } from "@mantine/core";
+import { AppShell, Group, Text, Grid, Paper } from "@mantine/core";
 import { LeftPanel } from "./components/LeftPanel";
 import { bg } from "./styles/theme";
+import { CameraGrid } from "./components/CameraGrid";
 
 function App() {
   return (
@@ -32,15 +33,15 @@ function App() {
         </Group>
 
         <Grid rowGap="md" columnGap="md">
-          <Grid.Col span={3}>
+          <Grid.Col span={2}>
             <Paper p="md" h={700} radius="md" bg={bg.panel}>
-              <LeftPanel/>
+              <LeftPanel />
             </Paper>
           </Grid.Col>
 
-          <Grid.Col span={9}>
+          <Grid.Col span={10}>
             <Paper p="md" h={700} radius="md" bg={bg.panel}>
-              Camera grid
+              <CameraGrid layoutMode={25} />
             </Paper>
           </Grid.Col>
 
