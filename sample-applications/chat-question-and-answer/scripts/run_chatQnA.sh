@@ -15,10 +15,11 @@ validate_input() {
 tput clear
 username=$(whoami)
 echo "=== UPDATE SYSTEM ==="
+sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list'
 sudo apt update && sudo apt upgrade -y
 
 echo "=== INSTALL DEPENDENCIES ==="
-sudo apt install -y ca-certificates curl gnupg git yq intel-gpu-tools python3-poetry
+sudo apt install -y ca-certificates curl gnupg git yq intel-gpu-tools python3-poetry google-chrome-stable
 
 echo "=== INSTALL DOCKER ==="
 sudo install -m 0755 -d /etc/apt/keyrings
