@@ -6,6 +6,7 @@ type StreamTile = {
     name: string;
     type: DeviceType;
     fps: number;
+    peerId?: string;
 };
 
 type CameraGridProps = {

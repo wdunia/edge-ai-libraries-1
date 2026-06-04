@@ -32,3 +32,13 @@ export async function checkHealth(): Promise<HealthStatus> {
     };
   }
 }
+
+export async function getPeerId(streamId: string): Promise<string> {
+  const response = await fetch(`${appConfig.apiUrl}/stream/${streamId}`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to get peer id. Status: ${response.status}`);
+  }
+
+  return await response.text();
+}

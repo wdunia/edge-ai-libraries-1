@@ -1,4 +1,7 @@
+import { useEffect, useState } from "react";
 import { Box, Group, SimpleGrid, Stack, Text } from "@mantine/core";
+import { subscribeToMetrics } from "../api/metricsApi";
+import type { MetricsSnapshot } from "../types/metrics";
 import { accent, bg } from "../styles/theme";
 
 const chartData = [
@@ -22,18 +25,20 @@ const gpuData = [
 ];
 
 type AreaChartProps = {
-    dataKey: keyof (typeof chartData)[number];
+    values: number[];
     color: string;
+    gradientId: string;
 };
 
-function AreaChart({ dataKey, color }: AreaChartProps) {
-    const values = chartData.map((item) => Number(item[dataKey]));
-    const min = Math.min(...values);
-    const max = Math.max(...values);
+function AreaChart({ values, color, gradientId }: AreaChartProps) {
+    const safeValues = values.length > 1 ? values : [0, 0];
+
+    const min = Math.min(...safeValues);
+    const max = Math.max(...safeValues);
     const range = max - min || 1;
 
-    const points = values.map((value, index) => {
-        const x = (index / (values.length - 1)) * 300;
+    const points = safeValues.map((value, index) => {
+        const x = (index / (safeValues.length - 1)) * 300;
         const y = 8 + (1 - (value - min) / range) * 110;
 
         return [x, y];
@@ -53,7 +58,6 @@ function AreaChart({ dataKey, color }: AreaChartProps) {
         .join(" ");
 
     const areaPath = `${linePath} L300,130 L0,130 Z`;
-    const gradientId = `area-${String(dataKey)}`;
 
     return (
         <svg
@@ -84,12 +88,12 @@ function MetricTile({
     title,
     value,
     color,
-    dataKey,
+    values,
 }: {
     title: string;
     value: string;
     color: string;
-    dataKey: keyof (typeof chartData)[number];
+    values: number[];
 }) {
     return (
         <Box
@@ -102,7 +106,7 @@ function MetricTile({
                 background: bg.tile,
             }}
         >
-            <AreaChart dataKey={dataKey} color={color} />
+            <AreaChart values={values} color={color} gradientId={`area-${title}`} />
 
             <Box style={{ position: "absolute", left: 16, top: 12, zIndex: 1 }}>
                 <Text size="xs" fw={700} tt="uppercase" lts="0.22em" c="dimmed">
@@ -214,13 +218,38 @@ function GpuEnginesChart() {
 }
 
 export function MetricsPanel() {
+    const [metrics, setMetrics] = useState<MetricsSnapshot | null>(null);
+    const [history, setHistory] = useState({
+        cpu: [0],
+        npu: [0],
+        fps: [0],
+        ram: [0],
+    });
+
+    useEffect(() => {
+        return subscribeToMetrics((nextMetrics) => {
+            setMetrics(nextMetrics);
+
+            setHistory((previous) => ({
+                cpu: [...previous.cpu, nextMetrics.cpu].slice(-30),
+                npu: previous.npu,
+                fps: previous.fps,
+                ram: [...previous.ram, nextMetrics.ram].slice(-30),
+            }));
+        }, console.error);
+    }, []);
+
+    const cpuValue = metrics ? `${metrics.cpu.toFixed(1)}%` : "N/A";
+    const npuValue = metrics?.npu === null || !metrics ? "N/A" : `${metrics.npu.toFixed(1)}%`;
+    const ramValue = metrics ? `${metrics.ram.toFixed(1)}%` : "N/A";
+
     return (
         <Stack gap="xs">
             <SimpleGrid cols={4} spacing="md">
-                <MetricTile title="CPU" value="58%" color={accent.blue} dataKey="cpu" />
-                <MetricTile title="NPU" value="44%" color={accent.purple} dataKey="npu" />
-                <MetricTile title="FPS" value="742" color={accent.green} dataKey="fps" />
-                <MetricTile title="RAM" value="57%" color={accent.orange} dataKey="ram" />
+                <MetricTile title="CPU" value={cpuValue} color={accent.blue} values={history.cpu} />
+                <MetricTile title="NPU" value={npuValue} color={accent.purple} values={history.npu} />
+                <MetricTile title="FPS" value="N/A" color={accent.green} values={history.fps} />
+                <MetricTile title="RAM" value={ramValue} color={accent.orange} values={history.ram} />
             </SimpleGrid>
 
             <GpuEnginesChart />
