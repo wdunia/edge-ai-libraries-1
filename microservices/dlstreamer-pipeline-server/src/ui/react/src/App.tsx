@@ -1,9 +1,19 @@
-import { AppShell, Group, Text, Grid, Paper } from "@mantine/core";
+import { AppShell, Group, Text, Badge, Grid, Paper } from "@mantine/core";
 import { LeftPanel } from "./components/LeftPanel";
 import { bg } from "./styles/theme";
 import { CameraGrid } from "./components/CameraGrid";
+import { useEffect, useState } from "react";
+import { checkHealth, type HealthStatus } from "./api/dlStreamerApi";
+import { MetricsPanel } from "./components/MetricsPanel";
 
 function App() {
+
+  const [health, setHealth] = useState<HealthStatus | null>(null);
+
+  useEffect(() => {
+    checkHealth().then(setHealth);
+  }, []);
+
   return (
     <AppShell
       padding="md"
@@ -26,6 +36,10 @@ function App() {
             </Text>
           </Group>
           <Group>
+            <Badge color={health?.ok ? "green" : "red"} variant="light">
+              API: {health === null ? "checking..." : health.ok ? "healthy" : "down"}
+            </Badge>
+
             Layout: 1 4 9 16 25 36
             FPS: 742
             Streams: 9
@@ -34,20 +48,20 @@ function App() {
 
         <Grid rowGap="md" columnGap="md">
           <Grid.Col span={2}>
-            <Paper p="md" h={700} radius="md" bg={bg.panel}>
+            <Paper p="md" h={480} radius="md" bg={bg.panel}>
               <LeftPanel />
             </Paper>
           </Grid.Col>
 
           <Grid.Col span={10}>
-            <Paper p="md" h={700} radius="md" bg={bg.panel}>
-              <CameraGrid layoutMode={25} />
+            <Paper p="md" h={480} radius="md" bg={bg.panel}>
+              <CameraGrid layoutMode={4} />
             </Paper>
           </Grid.Col>
 
           <Grid.Col span={12}>
-            <Paper p="md" h={260} radius="md" bg={bg.panel}>
-              Metrics
+            <Paper p="md" h={350} radius="md" bg={bg.panel}>
+              <MetricsPanel />
             </Paper>
           </Grid.Col>
         </Grid>
