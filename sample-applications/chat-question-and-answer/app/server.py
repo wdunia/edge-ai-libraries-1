@@ -131,13 +131,13 @@ async def add_timing_to_generator(generator_func, *args, **kwargs):
             
             # Add timing info
             total_time = round((last_chunk_time - start_time) * 1000, 2)
-            timing_data = f"data: \n{json.dumps({'response_time_ms': total_time, 'finished': True})}\n\n"
+            timing_data = f"data: {json.dumps({'response_time_ms': total_time, 'finished': True})}\n\n"
             yield timing_data
             
         except Exception as e:
             error_time = time.time()
             error_response_time = round((error_time - start_time) * 1000, 2)
-            error_data = f"data: \n{json.dumps({'error': str(e), 'response_time_ms': error_response_time})}\n\n"
+            error_data = f"data: {json.dumps({'error': str(e), 'response_time_ms': error_response_time})}\n\n"
             yield error_data
     
     return timed_generator()
@@ -149,9 +149,9 @@ async def query_chain(payload: QuestionRequest):
         logging.info(conversation_messages)
         question_text = conversation_messages[-1].content
 
-        max_tokens = payload.max_tokens if payload.max_tokens else 512
-        if max_tokens > 1024:
-            raise HTTPException(status_code=422, detail="max tokens cannot be greater than 1024")
+        max_tokens = payload.max_tokens if payload.max_tokens else 32768
+        if max_tokens > 32769:
+            raise HTTPException(status_code=422, detail="max tokens cannot be greater than 32769")
         if not question_text or question_text == "":
             raise HTTPException(status_code=422, detail="Question is required")
         

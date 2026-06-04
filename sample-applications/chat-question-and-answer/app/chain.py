@@ -88,7 +88,8 @@ retriever = EGAIVectorStoreRetriever(
 
 # Define our prompt
 template = """
-Reasoning: high
+<|start|>system<|message|>
+Reasoning: none
 Do not output your reasoning process, only the final output.
 SYSTEM CONSTRAINT: 
 You have no access to the internet.
@@ -105,9 +106,10 @@ Here's regular text with
 - **Benefit 2:** Another point
 > 💡 **Pro Tip:** This makes information stand out!
 Always prioritize clarity and scannability in your responses.
-
+<|end|><|start|>user<|message|>
 Conversation history: {history}
 prompt: {question}
+<|end|><|start|>assistant
 """
 
 

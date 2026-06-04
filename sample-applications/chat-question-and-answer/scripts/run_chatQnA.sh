@@ -43,13 +43,10 @@ sudo chmod 660 /var/run/docker.sock
 echo "=== INSTALL TMUX ==="
 sudo apt install -y tmux
 
-ip=$(hostname -I | awk '{print $1}')
+
 
 read -p "provide a HuggingFace Api Token for model download: " token
-export HUGGINGFACEHUB_API_TOKEN=$token
-export LLM_MODEL=OpenVINO/gpt-oss-20b-int4-ov
-export EMBEDDING_MODEL_NAME=nomic-ai/nomic-embed-text-v1.5
-export RERANKER_MODEL=BAAI/bge-reranker-base
+
 while true; do
     read -p "Please enter a target device (CPU, GPU, or NPU): " target_dev
     
@@ -60,14 +57,19 @@ while true; do
         echo "Invalid input. Please enter one of: CPU, GPU, NPU"
     fi
 done
-export DEVICE=$target_dev # Options: CPU for VLLM and TGI. GPU is only enabled for openvino model server(OVMS) .
+ip=$(hostname -I | awk '{print $1}')
+export HUGGINGFACEHUB_API_TOKEN=${token}
+export LLM_MODEL=OpenVINO/gpt-oss-20b-int4-ov
+export EMBEDDING_MODEL_NAME=nomic-ai/nomic-embed-text-v1.5
+export RERANKER_MODEL=BAAI/bge-reranker-base
+export DEVICE="GPU" # Options: CPU for VLLM and TGI. GPU is only enabled for openvino model server(OVMS) .
 export MODEL_DOWNLOAD_HOST=$ip
 export MODEL_DOWNLOAD_PORT=8200
 export ALLOWED_HOSTS=*
 export REGISTRY="intel/"
 export TAG=latest
 export APP_METRICS_URL="http://$ip:8100/metrics"
-
+export HOST_IP=$ip
 export GETI_SERVER_SSL_VERIFY=False 
 
 tmux new-session -d -s metrics-manager "docker run --rm --privileged --name metrics-manager \
@@ -95,10 +97,19 @@ while true; do
 done
 
 echo $PWD
-source $PWD/sample-applications/chat-question-and-answer/setup.sh llm=OVMS embed=OVMS
 cd $PWD/sample-applications/chat-question-and-answer/
-sg docker -c "docker compose up --build"
-#tmux new-session -d -s chatqna -c $PWD/sample-applications/chat-question-and-answer/ 'sg docker -c "docker compose up --build"'
+
+cd ovms/OpenVINO/gpt-oss-20b-int4-ov/
+sed -i 's/{- "<|start|>assistant" }}/{- "<|start|>assistant<|channel|>final<|message|>" }}/g' chat_template.ninja
+cd ../../../
+
+cd ui/react
+sed -i 's/VITE_MAX_TOKENS=APP_MAX_TOKENS/VITE_MAX_TOKENS=32768/' .env
+sed -i "s|VITE_METRICS_SERVICE_ENDPOINT=APP_METRICS_URL|VITE_METRICS_SERVICE_ENDPOINT=http://${IP}:8100/metrics|" .env
+cd ../../
+
+# sg docker -c "docker compose up --build"
+tmux new-session -d -s chatqna -c $PWD 'source setup.sh llm=OVMS embed=OVMS; sg docker -c "docker compose up --build"'
 while true; do
     response=$(curl -X GET "http://$ip:8101/api/v1/health")
     if [[ $response = '[{"status":"healthy","details":"LLM model server is ready to serve"},{"status":"healthy","details":"Embedding model server is ready to serve"}]' ]]; then
@@ -109,8 +120,11 @@ while true; do
     fi
 done
 
+cd tools
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python3 autorun.py
 
-echo "open web browser and navigate to http://$ip:8101 to access the Chat QnA application"
-echo "It may take a few moments for the application to fully start. Please be patient."
 read -n 1 -s -r -p "Press any key to continue after you have finished using the application..."
 exit 0
