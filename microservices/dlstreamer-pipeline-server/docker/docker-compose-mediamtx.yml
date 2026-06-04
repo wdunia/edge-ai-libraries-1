@@ -153,6 +153,8 @@ services:
   dlstreamer-pipeline-sever-ui:
     image: ${REGISTRY:-}dlstreamer-pipeline-server-ui-1.0
     container_name: dlstreamer-pipeline-server-ui
+    environment:
+      - ip=${ip}
     build:
       context: ../
       dockerfile: docker/Dockerfile

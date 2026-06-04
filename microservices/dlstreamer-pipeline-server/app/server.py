@@ -13,7 +13,7 @@ from urllib.parse import unquote
 from .metrics import SystemMonitor
 from .stream import Stream
 
-app = FastAPI(title="Chat Question and Answer Core", root_path="/v1/chatqna")
+app = FastAPI(title="Deep Learning Streamer", root_path="/v1/dlstreamer")
 
 app.add_middleware(
     CORSMiddleware,
@@ -66,11 +66,11 @@ async def get_pipeline_status():
             detail=f"Error getting pipeline status: {str(e)}",
         )
 
-@app.get("/pipeline/add", tags=["Pipelines"], summary="Add a new pipeline")
-async def add_pipeline(stream_path, model_path):
+@app.post("/pipeline/add", tags=["Pipelines"], summary="Add a new pipeline")
+async def add_pipeline(stream_path, model_path, target_device):
     try:
         stream = Stream()
-        response = stream.add_stream(stream_path, model_path)
+        response = stream.add_stream(stream_path, model_path, target_device)
         #response = "Pipeline added successfully."  # Placeholder for actual response
         return JSONResponse(content={"status": "Success", "message": f"{response}"})
     except Exception as e:
