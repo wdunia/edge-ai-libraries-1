@@ -6,7 +6,7 @@ type StreamTile = {
     name: string;
     type: DeviceType;
     fps: number;
-    peerId?: string;
+    streamUrl?: string;
 };
 
 type CameraGridProps = {
@@ -21,6 +21,10 @@ const streams: StreamTile[] = Array.from({ length: 12 }, (_, index) => {
         name: `CAM-${String(index + 1).padStart(2, "0")}`,
         type,
         fps: 29 + (index % 4),
+        streamUrl:
+            index === 0
+                ? "http://10.91.157.75:8889/pallet_defect_detection"
+                : undefined,
     };
 });
 
@@ -121,14 +125,37 @@ function CameraTile({ stream }: { stream: StreamTile }) {
                     height: "calc(100% - 38px)",
                     margin: 12,
                     background: "#000",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
+                    position: "relative",
+                    overflow: "hidden",
                 }}
             >
-                <Text size="xs" fw={700} c="dimmed" lts="0.2em">
-                    VIDEO STREAM HERE
-                </Text>
+                {stream.streamUrl ? (
+                    <iframe
+                        src={stream.streamUrl}
+                        title={stream.name}
+                        onLoad={() => console.log("[DLStreamer] iframe loaded:", stream.streamUrl)}
+                        style={{
+                            width: "100%",
+                            height: "100%",
+                            border: "none",
+                            display: "block",
+                        }}
+                        allow="autoplay; fullscreen"
+                    />
+                ) : (
+                    <Box
+                        style={{
+                            height: "100%",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                        }}
+                    >
+                        <Text size="xs" fw={700} c="dimmed" lts="0.2em">
+                            VIDEO STREAM HERE
+                        </Text>
+                    </Box>
+                )}
             </Box>
         </Box>
     );

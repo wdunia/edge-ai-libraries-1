@@ -33,12 +33,24 @@ export async function checkHealth(): Promise<HealthStatus> {
   }
 }
 
-export async function getPeerId(streamId: string): Promise<string> {
+export type StreamResponse = {
+  status: string;
+  metadata: Record<string, string>;
+};
+
+export async function getStreamUrl(streamId: string): Promise<string> {
   const response = await fetch(`${appConfig.apiUrl}/stream/${streamId}`);
 
   if (!response.ok) {
-    throw new Error(`Failed to get peer id. Status: ${response.status}`);
+    throw new Error(`Failed to get stream url. Status: ${response.status}`);
   }
 
-  return await response.text();
+  const data = (await response.json()) as StreamResponse;
+  const streamUrl = data.metadata[streamId];
+
+  if (!streamUrl) {
+    throw new Error(`Stream url not found for stream id: ${streamId}`);
+  }
+
+  return streamUrl.trim();
 }
