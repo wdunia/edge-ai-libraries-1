@@ -1,4 +1,4 @@
-import { AppShell, Group, Text, Badge, Grid, Paper } from "@mantine/core";
+import { AppShell, Group, Text, Badge, Grid, Paper, Button } from "@mantine/core";
 import { LeftPanel } from "./components/LeftPanel";
 import { bg } from "./styles/theme";
 import { CameraGrid } from "./components/CameraGrid";
@@ -6,9 +6,13 @@ import { useEffect, useState } from "react";
 import { checkHealth, type HealthStatus } from "./api/dlStreamerApi";
 import { MetricsPanel } from "./components/MetricsPanel";
 
+type LayoutMode = 1 | 4 | 9 | 16 | 25 | 36;
+const layoutModes: LayoutMode[] = [1, 4, 9, 16, 25, 36];
+
 function App() {
 
   const [health, setHealth] = useState<HealthStatus | null>(null);
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>(9);
 
   useEffect(() => {
     checkHealth().then(setHealth);
@@ -40,7 +44,23 @@ function App() {
               API: {health === null ? "checking..." : health.ok ? "healthy" : "down"}
             </Badge>
 
-            Layout: 1 4 9 16 25 36
+            <Group gap="xs">
+              <Text size="sm" c="dimmed">
+                Layout:
+              </Text>
+
+              {layoutModes.map((mode) => (
+                <Button
+                  key={mode}
+                  size="xs"
+                  variant={layoutMode === mode ? "filled" : "outline"}
+                  color="blue"
+                  onClick={() => setLayoutMode(mode)}
+                >
+                  {mode}
+                </Button>
+              ))}
+            </Group>
             FPS: 742
             Streams: 9
           </Group>
@@ -55,7 +75,7 @@ function App() {
 
           <Grid.Col span={10}>
             <Paper p="md" h={480} radius="md" bg={bg.panel}>
-              <CameraGrid layoutMode={4} />
+              <CameraGrid layoutMode={layoutMode} />
             </Paper>
           </Grid.Col>
 
