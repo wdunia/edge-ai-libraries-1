@@ -17,6 +17,7 @@ type CameraGridProps = {
 
 const streams: StreamTile[] = Array.from({ length: 12 }, (_, index) => {
     const type = (["GPU", "NPU", "CPU"] as const)[index % 3];
+    const testCameraPeerId = "camera0-webrtc";
 
     return {
         id: index + 1,
@@ -25,7 +26,7 @@ const streams: StreamTile[] = Array.from({ length: 12 }, (_, index) => {
         fps: 29 + (index % 4),
         streamUrl:
             index === 0
-                ? `${appConfig.webrtcUrl}/pallet_defect_detection`
+                ? `${appConfig.webrtcUrl}/${testCameraPeerId}/`
                 : undefined,
     };
 });
