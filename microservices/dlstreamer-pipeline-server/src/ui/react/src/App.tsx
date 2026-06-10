@@ -44,7 +44,7 @@ function App() {
               ? data.name
               : `${data.name}-${String(index + 1).padStart(2, "0")}`,
           type: data.device,
-          fps: 30,
+          fps: -1, // just an indicator to show incorrect value by default
           streamUrl: created.streamUrl,
           status: "RUNNING",
         } satisfies StreamTile;
@@ -62,6 +62,81 @@ function App() {
     loadRunningStreams().catch(console.error);
   }, []);
 
+  useEffect(() => {
+    async function refreshStreamFps() {
+      try {
+        const pipelineStatuses = await getPipelineStatus();
+
+        setStreams((previous) =>
+          previous.map((stream) => {
+            if (!stream.streamId) {
+              return stream;
+            }
+
+            const status = pipelineStatuses.find(
+              (pipeline) => pipeline.id === stream.streamId
+            );
+
+            if (!status) {
+              return stream;
+            }
+
+            return {
+              ...stream,
+              fps: Math.round(status.frame_fps ?? status.avg_fps ?? 0),
+              status: status.state,
+            };
+          })
+        );
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    refreshStreamFps();
+
+    const intervalId = window.setInterval(refreshStreamFps, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  useEffect(() => {
+    async function refreshStreamFps() {
+      try {
+        const pipelineStatuses = await getPipelineStatus();
+
+        setStreams((previous) =>
+          previous.map((stream) => {
+            const status = pipelineStatuses.find(
+              (pipeline) => pipeline.id === stream.streamId
+            );
+
+            if (!status) {
+              return stream;
+            }
+
+            return {
+              ...stream,
+              fps: Math.round(status.frame_fps ?? status.avg_fps ?? 0),
+              status: status.state,
+            };
+          })
+        );
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    refreshStreamFps();
+
+    const intervalId = window.setInterval(refreshStreamFps, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   async function loadRunningStreams() {
     const pipelineStatuses = await getPipelineStatus();

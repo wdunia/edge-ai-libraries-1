@@ -4,6 +4,7 @@ import { subscribeToMetrics } from "../api/metricsApi";
 import type { MetricsSnapshot } from "../types/metrics";
 import { accent, bg } from "../styles/theme";
 import { GpuMetricCard } from "./GpuMetricCard";
+import { getPipelineStatus } from "../api/pipelineStatusApi";
 
 const chartData = [
     { cpu: 42, npu: 28, fps: 250, ram: 44 },
@@ -235,6 +236,45 @@ export function MetricsPanel() {
     });
 
     useEffect(() => {
+        let isMounted = true;
+
+        async function refreshFps() {
+            try {
+                const pipelines = await getPipelineStatus();
+
+                if (!isMounted) {
+                    return;
+                }
+
+                const runningPipelines = pipelines.filter(
+                    (pipeline) => pipeline.state === "RUNNING"
+                );
+
+                const totalFps = runningPipelines.reduce(
+                    (sum, pipeline) => sum + (pipeline.frame_fps ?? 0),
+                    0
+                );
+
+                setHistory((previous) => ({
+                    ...previous,
+                    fps: [...previous.fps, totalFps].slice(-30),
+                }));
+            } catch (error) {
+                console.error(error);
+            }
+        }
+
+        refreshFps();
+
+        const intervalId = window.setInterval(refreshFps, 1000);
+
+        return () => {
+            isMounted = false;
+            window.clearInterval(intervalId);
+        };
+    }, []);
+
+    useEffect(() => {
         return subscribeToMetrics((nextMetrics) => {
             setMetrics(nextMetrics);
 
@@ -260,6 +300,10 @@ export function MetricsPanel() {
     const cpuValue = formatPercent(metrics?.cpu);
     const npuValue = formatPercent(metrics?.npu);
     const ramValue = formatPercent(metrics?.ram);
+    const fpsValue =
+        history.fps.length > 0
+            ? Math.round(history.fps.at(-1) ?? 0).toString()
+            : "N/A";
 
     const gpuSeries = [
         { label: "BCS", color: accent.green, data: history.gpu.bcs },
@@ -274,7 +318,7 @@ export function MetricsPanel() {
             <SimpleGrid cols={4} spacing="md">
                 <MetricTile title="CPU" value={cpuValue} color={accent.blue} values={history.cpu} />
                 <MetricTile title="NPU" value={npuValue} color={accent.purple} values={history.npu} />
-                <MetricTile title="FPS" value="N/A" color={accent.green} values={history.fps} />
+                <MetricTile title="FPS" value={fpsValue} color={accent.green} values={history.fps} />
                 <MetricTile title="RAM" value={ramValue} color={accent.orange} values={history.ram} />
             </SimpleGrid>
 
