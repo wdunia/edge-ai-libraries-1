@@ -30,26 +30,34 @@ function App() {
     name: string;
     sourceUri: string;
     device: DeviceType;
+    count: number;
   }) {
-    const created = await createCameraPipeline(data.device, data.sourceUri);
+    const createdPipelines = await Promise.all(
+      Array.from({ length: data.count }, async (_, index) => {
+        const created = await createCameraPipeline(data.device, data.sourceUri, index);
 
-    setStreams((previous) => [
-      ...previous,
-      {
-        id: Date.now(),
-        streamId: created.streamId,
-        name: data.name,
-        type: data.device,
-        fps: 30,
-        streamUrl: created.streamUrl,
-      },
-    ]);
+        return {
+          id: Date.now() + index,
+          streamId: created.streamId,
+          name:
+            data.count === 1
+              ? data.name
+              : `${data.name}-${String(index + 1).padStart(2, "0")}`,
+          type: data.device,
+          fps: 30,
+          streamUrl: created.streamUrl,
+          status: "RUNNING",
+        } satisfies StreamTile;
+      })
+    );
+
+    setStreams((previous) => [...previous, ...createdPipelines]);
   }
 
   useEffect(() => {
     checkHealth().then(setHealth);
   }, []);
-  
+
   useEffect(() => {
     loadRunningStreams().catch(console.error);
   }, []);
@@ -92,6 +100,8 @@ function App() {
 
     setStreams((previous) => previous.filter((item) => item.id !== stream.id));
   }
+
+  const totalFps = streams.reduce((sum, stream) => sum + stream.fps, 0);
 
   return (
     <AppShell
@@ -214,7 +224,7 @@ function App() {
                   </Text>
 
                   <Text size="xl" fw={900} c={accent.green} lh={1.1}>
-                    742
+                    {totalFps}
                   </Text>
                 </div>
 
@@ -232,7 +242,7 @@ function App() {
                   </Text>
 
                   <Text size="xl" fw={900} c={accent.blue} lh={1.1}>
-                    9
+                    {streams.length}
                   </Text>
                 </div>
 

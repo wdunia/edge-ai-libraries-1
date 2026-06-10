@@ -1,8 +1,18 @@
 import { appConfig } from "../config/appConfig";
-import type { MetricsSnapshot, RawMetricsEvent } from "../types/metrics";
+import type { MetricsSnapshot, RawMetricsEvent, RawGpuMetrics } from "../types/metrics";
 
 function normalizeMetricValue(value: number | "N/A"): number | null {
   return value === "N/A" ? null : value;
+}
+
+function normalizeGpuMetrics(gpu: RawGpuMetrics) {
+  return {
+    bcs: normalizeMetricValue(gpu.bcs),
+    ccs: normalizeMetricValue(gpu.ccs),
+    rcs: normalizeMetricValue(gpu.rcs),
+    vcs: normalizeMetricValue(gpu.vcs),
+    vecs: normalizeMetricValue(gpu.vecs),
+  };
 }
 
 export function subscribeToMetrics(
@@ -16,10 +26,10 @@ export function subscribeToMetrics(
 
     onMetrics({
       timestamp: raw.timestamp,
-      cpu: raw.cpu,
-      gpu: normalizeMetricValue(raw.gpu),
+      cpu: normalizeMetricValue(raw.cpu),
+      gpu: normalizeGpuMetrics(raw.gpu),
       npu: normalizeMetricValue(raw.npu),
-      ram: raw.ram,
+      ram: normalizeMetricValue(raw.ram),
     });
   };
 

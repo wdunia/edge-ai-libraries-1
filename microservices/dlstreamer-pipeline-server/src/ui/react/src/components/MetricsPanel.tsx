@@ -3,6 +3,7 @@ import { Box, Group, SimpleGrid, Stack, Text } from "@mantine/core";
 import { subscribeToMetrics } from "../api/metricsApi";
 import type { MetricsSnapshot } from "../types/metrics";
 import { accent, bg } from "../styles/theme";
+import { GpuMetricCard } from "./GpuMetricCard";
 
 const chartData = [
     { cpu: 42, npu: 28, fps: 250, ram: 44 },
@@ -224,6 +225,13 @@ export function MetricsPanel() {
         npu: [0],
         fps: [0],
         ram: [0],
+        gpu: {
+            bcs: [0],
+            ccs: [0],
+            rcs: [0],
+            vcs: [0],
+            vecs: [0],
+        },
     });
 
     useEffect(() => {
@@ -231,17 +239,35 @@ export function MetricsPanel() {
             setMetrics(nextMetrics);
 
             setHistory((previous) => ({
-                cpu: [...previous.cpu, nextMetrics.cpu].slice(-30),
-                npu: previous.npu,
+                cpu: [...previous.cpu, nextMetrics.cpu ?? 0].slice(-30),
+                npu: [...previous.npu, nextMetrics.npu ?? 0].slice(-30),
                 fps: previous.fps,
-                ram: [...previous.ram, nextMetrics.ram].slice(-30),
+                ram: [...previous.ram, nextMetrics.ram ?? 0].slice(-30),
+                gpu: {
+                    bcs: [...previous.gpu.bcs, nextMetrics.gpu.bcs ?? 0].slice(-30),
+                    ccs: [...previous.gpu.ccs, nextMetrics.gpu.ccs ?? 0].slice(-30),
+                    rcs: [...previous.gpu.rcs, nextMetrics.gpu.rcs ?? 0].slice(-30),
+                    vcs: [...previous.gpu.vcs, nextMetrics.gpu.vcs ?? 0].slice(-30),
+                    vecs: [...previous.gpu.vecs, nextMetrics.gpu.vecs ?? 0].slice(-30),
+                },
             }));
         }, console.error);
     }, []);
 
-    const cpuValue = metrics ? `${metrics.cpu.toFixed(1)}%` : "N/A";
-    const npuValue = metrics?.npu === null || !metrics ? "N/A" : `${metrics.npu.toFixed(1)}%`;
-    const ramValue = metrics ? `${metrics.ram.toFixed(1)}%` : "N/A";
+    const formatPercent = (value: number | null | undefined) =>
+        value == null ? "N/A" : `${value.toFixed(1)}%`;
+
+    const cpuValue = formatPercent(metrics?.cpu);
+    const npuValue = formatPercent(metrics?.npu);
+    const ramValue = formatPercent(metrics?.ram);
+
+    const gpuSeries = [
+        { label: "BCS", color: accent.green, data: history.gpu.bcs },
+        { label: "RCS", color: accent.blue, data: history.gpu.rcs },
+        { label: "CCS", color: accent.purple, data: history.gpu.ccs },
+        { label: "VCS", color: accent.orange, data: history.gpu.vcs },
+        { label: "VECS", color: accent.red, data: history.gpu.vecs },
+    ];
 
     return (
         <Stack gap="xs">
@@ -252,7 +278,7 @@ export function MetricsPanel() {
                 <MetricTile title="RAM" value={ramValue} color={accent.orange} values={history.ram} />
             </SimpleGrid>
 
-            <GpuEnginesChart />
+            <GpuMetricCard series={gpuSeries} />
         </Stack>
     );
 }
