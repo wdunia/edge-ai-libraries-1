@@ -39,7 +39,7 @@ export type StreamResponse = {
   metadata: Record<string, string>;
 };
 
-export async function getStreamUrl(streamId: string): Promise<string> {
+export async function getStreamUrl(streamId: string): Promise<string | null> {
   const response = await fetch(`${appConfig.apiUrl}/stream/${streamId}`);
 
   if (!response.ok) {
@@ -47,16 +47,43 @@ export async function getStreamUrl(streamId: string): Promise<string> {
   }
 
   const data = (await response.json()) as StreamResponse;
-  const streamUrl = data.metadata[streamId];
+  const streamUrl = data.metadata[streamId]?.trim();
 
   if (!streamUrl) {
-    throw new Error(`Stream url not found for stream id: ${streamId}`);
+    return null;
   }
 
-  return streamUrl.trim();
+  if (!streamUrl.startsWith(appConfig.webrtcUrl)) {
+    console.warn("[DLStreamer] Invalid stream URL:", {
+      streamId,
+      streamUrl,
+    });
+
+    return null;
+  }
+
+  if (streamUrl.includes("{") || streamUrl.includes("Stream ID") || streamUrl.includes("status: error")) {
+    console.warn("[DLStreamer] Backend returned error as stream URL:", {
+      streamId,
+      streamUrl,
+    });
+
+    return null;
+  }
+
+  return streamUrl.endsWith("/") ? streamUrl : `${streamUrl}/`;
 }
 
-export async function createCameraPipeline(device: DeviceType): Promise<string> {
+export type CreatedPipeline = {
+  streamId: string;
+  peerId: string;
+  streamUrl: string;
+};
+
+export async function createCameraPipeline(
+  device: DeviceType,
+  sourceUri: string
+): Promise<CreatedPipeline> {
   const peerId = `camera0-webrtc-${device.toLowerCase()}-${Date.now()}`;
 
   const response = await fetch(
@@ -68,7 +95,7 @@ export async function createCameraPipeline(device: DeviceType): Promise<string> 
       },
       body: JSON.stringify({
         source: {
-          uri: "url_here",
+          uri: sourceUri,
           type: "uri",
         },
         destination: {
@@ -99,11 +126,45 @@ export async function createCameraPipeline(device: DeviceType): Promise<string> 
 
   const streamId = (await response.text()).replaceAll('"', "").trim();
 
-  console.log("[DLStreamer] Created pipeline:", {
+  return {
     streamId,
     peerId,
-    device,
+    streamUrl: `${appConfig.webrtcUrl}/${peerId}/`,
+  };
+}
+
+
+export async function deletePipeline(streamId: string): Promise<void> {
+  const response = await fetch(`${appConfig.apiUrl}/pipeline/${streamId}`, {
+    method: "DELETE",
   });
 
-  return peerId;
+  if (!response.ok) {
+    throw new Error(`Failed to delete pipeline. Status: ${response.status}`);
+  }
+}
+
+
+export type PipelineStatusItem = {
+  id: string;
+  state: "RUNNING" | "COMPLETED" | "ENDED" | "CANCELED" | string;
+  frame_fps?: number;
+  avg_fps?: number;
+};
+export type PipelineStatusResponse = {
+  status: string;
+  metadata: string;
+};
+
+
+export async function getPipelineStatus(): Promise<PipelineStatusItem[]> {
+  const response = await fetch(`${appConfig.apiUrl}/pipeline/status`);
+
+  if (!response.ok) {
+    throw new Error(`Failed to get pipeline status. Status: ${response.status}`);
+  }
+
+  const data = (await response.json()) as PipelineStatusResponse;
+
+  return JSON.parse(data.metadata) as PipelineStatusItem[];
 }

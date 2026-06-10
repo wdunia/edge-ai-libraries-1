@@ -1,22 +1,97 @@
 import { AppShell, Group, Text, Box, Grid, Paper, Button } from "@mantine/core";
 import { LeftPanel } from "./components/LeftPanel";
-import { accent, bg } from "./styles/theme";
+import { accent, bg, type DeviceType } from "./styles/theme";
 import { CameraGrid } from "./components/CameraGrid";
 import { useEffect, useState } from "react";
-import { checkHealth, type HealthStatus } from "./api/dlStreamerApi";
 import { MetricsPanel } from "./components/MetricsPanel";
+import type { StreamTile } from "./components/CameraTile";
+import {
+  checkHealth,
+  createCameraPipeline,
+  deletePipeline,
+  getPipelineStatus,
+  getStreamUrl,
+  type HealthStatus,
+} from "./api/dlStreamerApi";
+
 
 type LayoutMode = 1 | 4 | 9 | 16 | 25 | 36;
+
+
 const layoutModes: LayoutMode[] = [1, 4, 9, 16, 25, 36];
 
 function App() {
 
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>(9);
+  const [streams, setStreams] = useState<StreamTile[]>([]);
+
+  async function handleAddPipeline(data: {
+    name: string;
+    sourceUri: string;
+    device: DeviceType;
+  }) {
+    const created = await createCameraPipeline(data.device, data.sourceUri);
+
+    setStreams((previous) => [
+      ...previous,
+      {
+        id: Date.now(),
+        streamId: created.streamId,
+        name: data.name,
+        type: data.device,
+        fps: 30,
+        streamUrl: created.streamUrl,
+      },
+    ]);
+  }
 
   useEffect(() => {
     checkHealth().then(setHealth);
   }, []);
+  
+  useEffect(() => {
+    loadRunningStreams().catch(console.error);
+  }, []);
+
+
+  async function loadRunningStreams() {
+    const pipelineStatuses = await getPipelineStatus();
+
+    const visiblePipelines = pipelineStatuses.filter(
+      (pipeline) => pipeline.state === "RUNNING" || pipeline.state === "QUEUED"
+    );
+
+    const restoredStreams = await Promise.all(
+      visiblePipelines.map(async (pipeline, index) => {
+        const streamUrl =
+          pipeline.state === "RUNNING" ? await getStreamUrl(pipeline.id) : null;
+
+        return {
+          id: index + 1,
+          streamId: pipeline.id,
+          name: `CAM-${String(index + 1).padStart(2, "0")}`,
+          type: "CPU" as const,
+          fps: Math.round(pipeline.frame_fps ?? pipeline.avg_fps ?? 0),
+          streamUrl: streamUrl ?? undefined,
+          status: pipeline.state,
+        };
+      })
+    );
+
+    setStreams(restoredStreams);
+  }
+
+  async function handleDeleteStream(stream: StreamTile) {
+    if (!stream.streamId) {
+      setStreams((previous) => previous.filter((item) => item.id !== stream.id));
+      return;
+    }
+
+    await deletePipeline(stream.streamId);
+
+    setStreams((previous) => previous.filter((item) => item.id !== stream.id));
+  }
 
   return (
     <AppShell
@@ -194,14 +269,17 @@ function App() {
           {/* Left Panel */}
           <Grid.Col span={2}>
             <Paper p="md" h={480} radius="md" bg={bg.panel}>
-              <LeftPanel />
+              <LeftPanel onAddPipeline={handleAddPipeline} />
             </Paper>
           </Grid.Col>
 
           {/* Right Grid */}
           <Grid.Col span={10}>
             <Paper p="md" h={480} radius="md" bg={bg.panel}>
-              <CameraGrid layoutMode={layoutMode} />
+              <CameraGrid layoutMode={layoutMode}
+                streams={streams}
+                onDeleteStream={handleDeleteStream}
+              />
             </Paper>
           </Grid.Col>
 

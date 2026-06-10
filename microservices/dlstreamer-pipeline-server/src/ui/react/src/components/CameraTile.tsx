@@ -3,10 +3,12 @@ import { bg, pipelineTypeConfig, type DeviceType, accent } from "../styles/theme
 
 export type StreamTile = {
     id: number;
+    streamId?: string;
     name: string;
     type: DeviceType;
     fps: number;
     streamUrl?: string;
+    status?: string;
 };
 
 type CameraTileProps = {
@@ -111,7 +113,7 @@ export function CameraTile({ stream, onDelete, onClone }: CameraTileProps) {
                         }}
                     >
                         <Text size="xs" fw={700} c="dimmed" lts="0.2em">
-                            VIDEO STREAM HERE
+                            {stream.status === "QUEUED" ? "STREAM QUEUED" : "STREAM NOT READY"}
                         </Text>
                     </Box>
                 )}

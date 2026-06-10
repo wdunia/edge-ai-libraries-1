@@ -1,9 +1,36 @@
+import { useState } from "react";
 import { Button, Stack, Text, TextInput } from "@mantine/core";
 import { bg, pipelineTypeConfig, type DeviceType } from "../styles/theme";
 
 const devices: DeviceType[] = ["GPU", "NPU", "CPU"];
 
-export function LeftPanel() {
+type LeftPanelProps = {
+    onAddPipeline: (data: {
+        name: string;
+        sourceUri: string;
+        device: DeviceType;
+    }) => Promise<void>;
+};
+
+export function LeftPanel({ onAddPipeline }: LeftPanelProps) {
+    const [streamName, setStreamName] = useState("CAM-01");
+    const [streamUrl, setStreamUrl] = useState("");
+    const [isAdding, setIsAdding] = useState(false);
+
+    async function handleAddPipeline(device: DeviceType) {
+        setIsAdding(true);
+
+        try {
+            await onAddPipeline({
+                name: streamName,
+                sourceUri: streamUrl,
+                device,
+            });
+        } finally {
+            setIsAdding(false);
+        }
+    }
+
     return (
         <Stack gap="md">
             <Text size="lg" fw={900} lts="0.08em">
@@ -14,17 +41,26 @@ export function LeftPanel() {
                 <StyledTextInput
                     label="Stream Name"
                     placeholder="CAM-ENTRANCE-01"
+                    value={streamName}
+                    onChange={setStreamName}
                 />
 
                 <StyledTextInput
                     label="Stream URL"
-                    placeholder="webrtc://192.168.0.15/live"
+                    placeholder=""
+                    value={streamUrl}
+                    onChange={setStreamUrl}
                 />
             </Stack>
 
             <Stack gap="xs" mt={4}>
                 {devices.map((device) => (
-                    <PipelineButton key={device} device={device} />
+                    <PipelineButton
+                        key={device}
+                        device={device}
+                        loading={isAdding}
+                        onClick={() => handleAddPipeline(device)}
+                    />
                 ))}
             </Stack>
         </Stack>
@@ -34,14 +70,20 @@ export function LeftPanel() {
 function StyledTextInput({
     label,
     placeholder,
+    value,
+    onChange,
 }: {
     label: string;
     placeholder: string;
+    value: string;
+    onChange: (value: string) => void;
 }) {
     return (
         <TextInput
             label={label}
             placeholder={placeholder}
+            value={value}
+            onChange={(event) => onChange(event.currentTarget.value)}
             styles={{
                 label: {
                     marginBottom: 5,
@@ -62,13 +104,23 @@ function StyledTextInput({
     );
 }
 
-function PipelineButton({ device }: { device: DeviceType }) {
+function PipelineButton({
+    device,
+    loading,
+    onClick,
+}: {
+    device: DeviceType;
+    loading: boolean;
+    onClick: () => void;
+}) {
     const config = pipelineTypeConfig[device];
 
     return (
         <Button
             fullWidth
             radius={4}
+            loading={loading}
+            onClick={onClick}
             styles={{
                 root: {
                     height: 38,
