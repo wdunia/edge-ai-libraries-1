@@ -82,9 +82,10 @@ export type CreatedPipeline = {
 
 export async function createCameraPipeline(
   device: DeviceType,
-  sourceUri: string
+  sourceUri: string,
+  index = 0
 ): Promise<CreatedPipeline> {
-  const peerId = `camera0-webrtc-${device.toLowerCase()}-${Date.now()}`;
+  const peerId = `camera0-webrtc-${device.toLowerCase()}-${Date.now()}-${index}`;
 
   const response = await fetch(
     `${appConfig.pipelineServerUrl}/pipelines/user_defined_pipelines/pallet_defect_detection`,

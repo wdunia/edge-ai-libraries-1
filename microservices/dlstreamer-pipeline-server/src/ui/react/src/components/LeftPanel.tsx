@@ -9,6 +9,7 @@ type LeftPanelProps = {
         name: string;
         sourceUri: string;
         device: DeviceType;
+        count: number;
     }) => Promise<void>;
 };
 
@@ -16,8 +17,10 @@ export function LeftPanel({ onAddPipeline }: LeftPanelProps) {
     const [streamName, setStreamName] = useState("CAM-01");
     const [streamUrl, setStreamUrl] = useState("");
     const [isAdding, setIsAdding] = useState(false);
+    const [streamCount, setStreamCount] = useState("1");
 
     async function handleAddPipeline(device: DeviceType) {
+        const count = Math.min(Math.max(Number(streamCount) || 1, 1), 50);
         setIsAdding(true);
 
         try {
@@ -25,6 +28,7 @@ export function LeftPanel({ onAddPipeline }: LeftPanelProps) {
                 name: streamName,
                 sourceUri: streamUrl,
                 device,
+                count: count,
             });
         } finally {
             setIsAdding(false);
@@ -54,6 +58,12 @@ export function LeftPanel({ onAddPipeline }: LeftPanelProps) {
             </Stack>
 
             <Stack gap="xs" mt={4}>
+                <StyledTextInput
+                    label="Instances (1-50)"
+                    placeholder="1"
+                    value={streamCount}
+                    onChange={setStreamCount}
+                />
                 {devices.map((device) => (
                     <PipelineButton
                         key={device}
@@ -116,6 +126,7 @@ function PipelineButton({
     const config = pipelineTypeConfig[device];
 
     return (
+
         <Button
             fullWidth
             radius={4}
