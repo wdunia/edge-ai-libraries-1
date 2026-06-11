@@ -2,7 +2,6 @@ import asyncio
 import inspect
 import json
 import os
-import random
 import time
 import psutil
 import subprocess
@@ -39,14 +38,20 @@ class SystemMonitor:
 
     def get_gpu_usage(self):
         try:
-            result = subprocess.run('curl -s http://metrics-manager:9273/metrics | grep gpu_utilization | awk "{print $2}"', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=5).stdout
-            return float(result)
+            host_ip = os.environ.get("HOST_IP")
+            bcs = subprocess.run('curl -s http://'+ host_ip + ':9273/metrics | grep gpu_engine_usage_usage{engine | grep bcs | cut -d" " -f2', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
+            ccs = subprocess.run('curl -s http://'+ host_ip + ':9273/metrics | grep gpu_engine_usage_usage{engine | grep ccs | cut -d" " -f2', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
+            rcs = subprocess.run('curl -s http://'+ host_ip + ':9273/metrics | grep gpu_engine_usage_usage{engine | grep rcs | cut -d" " -f2', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
+            vcs = subprocess.run('curl -s http://'+ host_ip + ':9273/metrics | grep gpu_engine_usage_usage{engine | grep vcs | cut -d" " -f2', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
+            vecs = subprocess.run('curl -s http://'+ host_ip + ':9273/metrics | grep gpu_engine_usage_usage{engine | grep vecs | cut -d" " -f2', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
+            return {"bcs": float(bcs), "ccs": float(ccs), "rcs": float(rcs), "vcs": float(vcs), "vecs": float(vecs)}
         except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
             return "N/A"
         
     def get_npu_usage(self):
         try:
-            result = subprocess.run("curl -s http://metrics-manager:9273/metrics | grep npu_utilization{ | awk '{print $2}'", shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=5).stdout
+            host_ip = os.environ.get("HOST_IP")
+            result = subprocess.run('curl -s http://'+ host_ip + ':9273/metrics | grep npu_utilization{ | cut -d" " -f2', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
             return float(result)
         except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
             return "N/A"

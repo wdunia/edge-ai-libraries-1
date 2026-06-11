@@ -41,7 +41,6 @@ services:
     entrypoint: ["./run.sh"]
     ports:
       - '8080:8080'
-      - '8554:8554'
     networks:
       - app_network
     environment:
@@ -115,7 +114,7 @@ services:
     container_name: mediamtx-server
     environment:
       - MTX_LOGLEVEL=info
-      - MTX_RTSP=no
+      - MTX_RTSP=yes
       - MTX_RTMP=no
       - MTX_SRT=no
       - MTX_RTMP=no
@@ -128,6 +127,7 @@ services:
       - MTX_WEBRTCICESERVERS2_0_PASSWORD=${MTX_WEBRTCICESERVERS2_0_PASSWORD}
     ports:
       - "${WHIP_SERVER_PORT}:8889"
+      - "8554:8554"
       - "8189:8189"
       - "9997:9997"
     networks:
@@ -155,6 +155,7 @@ services:
     container_name: dlstreamer-pipeline-server-ui
     environment:
       - ip=${ip}
+      - HOST_IP=${ip}
     build:
       context: ../
       dockerfile: docker/Dockerfile

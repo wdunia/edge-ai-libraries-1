@@ -14,6 +14,9 @@ from .metrics import SystemMonitor
 from .stream import Stream
 
 app = FastAPI(title="Deep Learning Streamer", root_path="/v1/dlstreamer")
+monitor = SystemMonitor()
+stream = Stream()
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -42,7 +45,6 @@ async def health():
 async def get_system_metrics(ram_type: str = "percent"):
 
     try:
-        monitor = SystemMonitor()
         return StreamingResponse(monitor.return_all(), media_type="text/event-stream")
         
     
@@ -57,7 +59,6 @@ async def get_system_metrics(ram_type: str = "percent"):
 async def get_pipeline_status():
     try:
         # Placeholder for actual pipeline status retrieval logic
-        stream = Stream()
         pipeline_status = stream.view_pipeline()
         return JSONResponse(content={"status": "Success", "metadata": pipeline_status})
     except Exception as e:
@@ -69,7 +70,6 @@ async def get_pipeline_status():
 @app.post("/pipeline/add", tags=["Pipelines"], summary="Add a new pipeline")
 async def add_pipeline(stream_path, model_path, target_device):
     try:
-        stream = Stream()
         response = stream.add_stream(stream_path, model_path, target_device)
         #response = "Pipeline added successfully."  # Placeholder for actual response
         return JSONResponse(content={"status": "Success", "message": f"{response}"})
@@ -83,7 +83,6 @@ async def add_pipeline(stream_path, model_path, target_device):
 async def view_pipeline_metadata(file_path: str = ""):
     try:
         file_path = "/tmp/results.jsonl"
-        stream = Stream()
         metadata = stream.view_metadata(file_path)
         return JSONResponse(content={"status": "Success", "metadata": metadata})
     except Exception as e:
@@ -95,7 +94,6 @@ async def view_pipeline_metadata(file_path: str = ""):
 @app.delete("/pipeline/{stream_id}", tags=["Pipelines"], summary="Delete a pipeline")
 async def delete_pipeline(stream_id: str):
     try:
-        stream = Stream()
         result = stream.delete_stream(stream_id)
         return JSONResponse(content={"status": "Success", "message": result["message"]})
     except Exception as e:
@@ -109,7 +107,6 @@ async def delete_pipeline(stream_id: str):
 async def get_metadata(file_path: str):
     try:
         decoded_path = unquote(file_path)
-        stream = Stream()
         metadata = stream.view_metadata(decoded_path)
         return JSONResponse(content={"status": "Success", "metadata": metadata})
     except Exception as e:
@@ -121,7 +118,6 @@ async def get_metadata(file_path: str):
 @app.get("/stream/{stream_id}", tags=["Stream"], summary="Get stream_url")
 async def get_stream(stream_id: str):
     try:
-        stream = Stream()
         stream_url = stream.view_stream(stream_id)
         return JSONResponse(content={"status": "Success", "metadata": stream_url})
     except Exception as e:

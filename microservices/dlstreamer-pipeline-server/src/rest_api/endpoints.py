@@ -227,7 +227,7 @@ class Endpoints:
                 pipeline_id, err = Endpoints.pipeline_server_manager.start_instance(
                     name, version, connexion.request.get_json())
                 full_json = connexion.request.get_json()
-                Endpoints.get_url = {f"{pipeline_id}": f"{full_json["destination"]["frame"]["peer-id"]}"}
+                Endpoints.get_url[pipeline_id] = f"{full_json["destination"]["frame"]["peer-id"]}"
                 if pipeline_id is not None:
                     return pipeline_id
                 return (err, HTTPStatus.BAD_REQUEST)
