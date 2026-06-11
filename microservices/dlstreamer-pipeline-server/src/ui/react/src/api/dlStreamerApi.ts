@@ -36,7 +36,13 @@ export async function checkHealth(): Promise<HealthStatus> {
 
 export type StreamResponse = {
   status: string;
-  metadata: Record<string, string>;
+  metadata: Record<
+    string,
+    {
+      target_device: string;
+      url: string;
+    }
+  >;
 };
 
 export async function getStreamUrl(streamId: string): Promise<string | null> {
@@ -47,9 +53,22 @@ export async function getStreamUrl(streamId: string): Promise<string | null> {
   }
 
   const data = (await response.json()) as StreamResponse;
-  const streamUrl = data.metadata[streamId]?.trim();
+
+  console.log("[DLStreamer] stream response:", data);
+
+  const rawMetadata = data.metadata;
+  const rawStreamValue = rawMetadata?.[streamId];
+  const rawUrl = rawStreamValue?.url;
+
+  const streamUrl = typeof rawUrl === "string" ? rawUrl.trim() : null;
 
   if (!streamUrl) {
+    console.warn("[DLStreamer] Missing stream URL:", {
+      streamId,
+      rawMetadata,
+      rawStreamValue,
+    });
+
     return null;
   }
 
@@ -62,11 +81,14 @@ export async function getStreamUrl(streamId: string): Promise<string | null> {
     return null;
   }
 
-  if (streamUrl.includes("{") || streamUrl.includes("Stream ID") || streamUrl.includes("status: error")) {
-    console.warn("[DLStreamer] Backend returned error as stream URL:", {
-      streamId,
-      streamUrl,
-    });
+  if (
+    streamUrl.includes("{") ||
+    streamUrl.includes("status: error")
+  ) {
+    // console.warn("[DLStreamer] Backend returned error as stream URL:", {
+    //   streamId,
+    //   streamUrl,
+    // });
 
     return null;
   }

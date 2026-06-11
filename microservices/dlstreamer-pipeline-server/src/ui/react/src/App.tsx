@@ -58,6 +58,33 @@ function App() {
     checkHealth().then(setHealth);
   }, []);
 
+  async function loadRunningStreams() {
+    const pipelineStatuses = await getPipelineStatus();
+
+    const visiblePipelines = pipelineStatuses.filter(
+      (pipeline) => pipeline.state === "RUNNING" || pipeline.state === "QUEUED"
+    );
+
+    const restoredStreams = await Promise.all(
+      visiblePipelines.map(async (pipeline, index) => {
+        const streamUrl =
+          pipeline.state === "RUNNING" ? await getStreamUrl(pipeline.id) : null;
+
+        return {
+          id: index + 1,
+          streamId: pipeline.id,
+          name: `CAM-${String(index + 1).padStart(2, "0")}`,
+          type: "CPU" as const,
+          fps: Math.round(pipeline.frame_fps ?? pipeline.avg_fps ?? 0),
+          streamUrl: streamUrl ?? undefined,
+          status: pipeline.state,
+        };
+      })
+    );
+
+    setStreams(restoredStreams);
+  }
+
   useEffect(() => {
     loadRunningStreams().catch(console.error);
   }, []);
@@ -101,69 +128,6 @@ function App() {
       window.clearInterval(intervalId);
     };
   }, []);
-
-  useEffect(() => {
-    async function refreshStreamFps() {
-      try {
-        const pipelineStatuses = await getPipelineStatus();
-
-        setStreams((previous) =>
-          previous.map((stream) => {
-            const status = pipelineStatuses.find(
-              (pipeline) => pipeline.id === stream.streamId
-            );
-
-            if (!status) {
-              return stream;
-            }
-
-            return {
-              ...stream,
-              fps: Math.round(status.frame_fps ?? status.avg_fps ?? 0),
-              status: status.state,
-            };
-          })
-        );
-      } catch (error) {
-        console.error(error);
-      }
-    }
-
-    refreshStreamFps();
-
-    const intervalId = window.setInterval(refreshStreamFps, 1000);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, []);
-
-  async function loadRunningStreams() {
-    const pipelineStatuses = await getPipelineStatus();
-
-    const visiblePipelines = pipelineStatuses.filter(
-      (pipeline) => pipeline.state === "RUNNING" || pipeline.state === "QUEUED"
-    );
-
-    const restoredStreams = await Promise.all(
-      visiblePipelines.map(async (pipeline, index) => {
-        const streamUrl =
-          pipeline.state === "RUNNING" ? await getStreamUrl(pipeline.id) : null;
-
-        return {
-          id: index + 1,
-          streamId: pipeline.id,
-          name: `CAM-${String(index + 1).padStart(2, "0")}`,
-          type: "CPU" as const,
-          fps: Math.round(pipeline.frame_fps ?? pipeline.avg_fps ?? 0),
-          streamUrl: streamUrl ?? undefined,
-          status: pipeline.state,
-        };
-      })
-    );
-
-    setStreams(restoredStreams);
-  }
 
   async function handleDeleteStream(stream: StreamTile) {
     if (!stream.streamId) {

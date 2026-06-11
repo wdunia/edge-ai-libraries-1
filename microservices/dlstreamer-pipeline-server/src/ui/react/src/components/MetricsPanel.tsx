@@ -1,30 +1,11 @@
 import { useEffect, useState } from "react";
-import { Box, Group, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Box, SimpleGrid, Stack, Text } from "@mantine/core";
 import { subscribeToMetrics } from "../api/metricsApi";
 import type { MetricsSnapshot } from "../types/metrics";
 import { accent, bg } from "../styles/theme";
 import { GpuMetricCard } from "./GpuMetricCard";
 import { getPipelineStatus } from "../api/pipelineStatusApi";
 
-const chartData = [
-    { cpu: 42, npu: 28, fps: 250, ram: 44 },
-    { cpu: 45, npu: 32, fps: 260, ram: 48 },
-    { cpu: 43, npu: 30, fps: 270, ram: 47 },
-    { cpu: 48, npu: 34, fps: 275, ram: 52 },
-    { cpu: 46, npu: 35, fps: 280, ram: 51 },
-    { cpu: 50, npu: 38, fps: 290, ram: 55 },
-    { cpu: 58, npu: 44, fps: 300, ram: 57 },
-];
-
-const gpuData = [
-    { bcs: 72, rcs: 81, ccs: 68, vcs: 55, vecs: 64 },
-    { bcs: 75, rcs: 84, ccs: 71, vcs: 58, vecs: 67 },
-    { bcs: 78, rcs: 86, ccs: 73, vcs: 60, vecs: 70 },
-    { bcs: 76, rcs: 88, ccs: 75, vcs: 62, vecs: 72 },
-    { bcs: 80, rcs: 90, ccs: 77, vcs: 64, vecs: 74 },
-    { bcs: 82, rcs: 91, ccs: 79, vcs: 66, vecs: 76 },
-    { bcs: 84, rcs: 93, ccs: 81, vcs: 69, vecs: 78 },
-];
 
 type AreaChartProps = {
     values: number[];
@@ -119,102 +100,6 @@ function MetricTile({
                     {value}
                 </Text>
             </Box>
-        </Box>
-    );
-}
-
-function GpuEnginesChart() {
-    const lines = [
-        { key: "bcs", label: "BCS", color: accent.green },
-        { key: "rcs", label: "RCS", color: accent.blue },
-        { key: "ccs", label: "CCS", color: accent.purple },
-        { key: "vcs", label: "VCS", color: accent.orange },
-        { key: "vecs", label: "VECS", color: accent.red },
-    ] as const;
-
-    const allValues = lines.flatMap((line) =>
-        gpuData.map((item) => item[line.key])
-    );
-
-    const min = Math.min(...allValues);
-    const max = Math.max(...allValues);
-    const range = max - min || 1;
-
-    return (
-        <Box
-            style={{
-                position: "relative",
-                height: 170,
-                overflow: "hidden",
-                borderRadius: 6,
-                border: `1px solid ${bg.border}`,
-                background: bg.tile,
-            }}
-        >
-            <svg
-                viewBox="0 0 800 170"
-                preserveAspectRatio="none"
-                style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
-            >
-                {lines.map((line) => {
-                    const points = gpuData.map((item, index) => {
-                        const x = 8 + (index / (gpuData.length - 1)) * 784;
-                        const y = 44 + (1 - (item[line.key] - min) / range) * 118;
-
-                        return [x, y];
-                    });
-
-                    const path = points
-                        .map(([x, y], index) => {
-                            if (index === 0) {
-                                return `M${x},${y}`;
-                            }
-
-                            const [previousX, previousY] = points[index - 1];
-                            const controlX = (previousX + x) / 2;
-
-                            return `C${controlX},${previousY} ${controlX},${y} ${x},${y}`;
-                        })
-                        .join(" ");
-
-                    return (
-                        <path
-                            key={line.key}
-                            d={path}
-                            fill="none"
-                            stroke={line.color}
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                        />
-                    );
-                })}
-            </svg>
-
-            <Box style={{ position: "absolute", left: 16, top: 12, zIndex: 1 }}>
-                <Text size="xs" fw={700} tt="uppercase" lts="0.22em" c="dimmed">
-                    GPU Engines
-                </Text>
-
-                <Text mt={4} size="xl" fw={900} c={accent.purple}>
-                    93%
-                </Text>
-            </Box>
-
-            <Group gap="md"
-                style={{ position: "absolute", right: 16, top: 16, zIndex: 1 }}>
-                {lines.map((line) => (
-                    <Text
-                        key={line.key}
-                        size="xs"
-                        fw={800}
-                        tt="uppercase"
-                        lts="0.16em"
-                        c={line.color}
-                    >
-                        {line.label}
-                    </Text>
-                ))}
-            </Group>
         </Box>
     );
 }
