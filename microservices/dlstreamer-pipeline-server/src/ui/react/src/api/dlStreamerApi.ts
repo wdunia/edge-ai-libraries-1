@@ -53,9 +53,6 @@ export async function getStreamUrl(streamId: string): Promise<string | null> {
   }
 
   const data = (await response.json()) as StreamResponse;
-
-  console.log("[DLStreamer] stream response:", data);
-
   const rawMetadata = data.metadata;
   const rawStreamValue = rawMetadata?.[streamId];
   const rawUrl = rawStreamValue?.url;
@@ -102,57 +99,58 @@ export type CreatedPipeline = {
   streamUrl: string;
 };
 
+export type AddPipelineResponse = {
+  status: string;
+  message: string;
+};
+
+const palletDefectDetectionModelPath =
+  "/home/fst/edge-ai-libraries/microservices/dlstreamer-pipeline-server/resources/models/geti/pallet_defect_detection/deployment/Detection/model/model.xml";
+  
 export async function createCameraPipeline(
   device: DeviceType,
   sourceUri: string,
   index = 0
 ): Promise<CreatedPipeline> {
-  const peerId = `camera0-webrtc-${device.toLowerCase()}-${Date.now()}-${index}`;
+  const params = new URLSearchParams({
+    stream_path: sourceUri,
+    model_path: palletDefectDetectionModelPath,
+    target_device: device,
+  });
 
   const response = await fetch(
-    `${appConfig.pipelineServerUrl}/pipelines/user_defined_pipelines/pallet_defect_detection`,
+    `${appConfig.apiUrl}/pipeline/add?${params.toString()}`,
     {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        accept: "application/json",
       },
-      body: JSON.stringify({
-        source: {
-          uri: sourceUri,
-          type: "uri",
-        },
-        destination: {
-          metadata: {
-            type: "file",
-            format: "json-lines",
-            path: "/tmp/results.jsonl",
-          },
-          frame: {
-            type: "webrtc",
-            "peer-id": peerId,
-          },
-        },
-        parameters: {
-          "detection-properties": {
-            model:
-              "/home/fst/edge-ai-libraries/microservices/dlstreamer-pipeline-server/resources/models/geti/pallet_defect_detection/deployment/Detection/model/model.xml",
-            device,
-          },
-        },
-      }),
+      body: "",
     }
   );
 
   if (!response.ok) {
-    throw new Error(`Failed to create pipeline. Status: ${response.status}`);
+    const errorText = await response.text();
+
+    throw new Error(
+      `Failed to create pipeline. Status: ${response.status}. Response: ${errorText}`
+    );
   }
 
-  const streamId = (await response.text()).replaceAll('"', "").trim();
+  const data = (await response.json()) as AddPipelineResponse;
+
+  if (data.status !== "Success") {
+    throw new Error(`Failed to create pipeline. Message: ${data.message}`);
+  }
+
+  const streamId = data.message.replaceAll('"', "").trim();
+
+  const streamUrl = await getStreamUrl(streamId);
 
   return {
     streamId,
-    peerId,
-    streamUrl: `${appConfig.webrtcUrl}/${peerId}/`,
+    peerId: streamId,
+    streamUrl: streamUrl ?? `${appConfig.webrtcUrl}/${streamId}/`,
   };
 }
 
@@ -170,7 +168,7 @@ export async function deletePipeline(streamId: string): Promise<void> {
 
 export type PipelineStatusItem = {
   id: string;
-  state: "RUNNING" | "COMPLETED" | "ENDED" | "CANCELED" | string;
+  state: string;
   frame_fps?: number;
   avg_fps?: number;
 };
@@ -190,4 +188,8 @@ export async function getPipelineStatus(): Promise<PipelineStatusItem[]> {
   const data = (await response.json()) as PipelineStatusResponse;
 
   return JSON.parse(data.metadata) as PipelineStatusItem[];
+}
+
+export async function deleteAllPipelines(streamIds: string[]): Promise<void> {
+  await Promise.all(streamIds.map((streamId) => deletePipeline(streamId)));
 }

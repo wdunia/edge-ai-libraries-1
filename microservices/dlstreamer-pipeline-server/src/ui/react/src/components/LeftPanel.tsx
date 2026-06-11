@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button, Stack, Text, TextInput } from "@mantine/core";
-import { bg, pipelineTypeConfig, type DeviceType } from "../styles/theme";
+import { accent, bg, pipelineTypeConfig, type DeviceType } from "../styles/theme";
 
 const devices: DeviceType[] = ["GPU", "NPU", "CPU"];
 
@@ -11,13 +11,16 @@ type LeftPanelProps = {
         device: DeviceType;
         count: number;
     }) => Promise<void>;
+
+    onRemoveAllPipelines: () => Promise<void>;
 };
 
-export function LeftPanel({ onAddPipeline }: LeftPanelProps) {
+export function LeftPanel({ onAddPipeline, onRemoveAllPipelines }: LeftPanelProps) {
     const [streamName, setStreamName] = useState("CAM-01");
     const [streamUrl, setStreamUrl] = useState("");
     const [isAdding, setIsAdding] = useState(false);
     const [streamCount, setStreamCount] = useState("1");
+    const [isRemovingAll, setIsRemovingAll] = useState(false);
 
     async function handleAddPipeline(device: DeviceType) {
         const count = Math.min(Math.max(Number(streamCount) || 1, 1), 50);
@@ -32,6 +35,16 @@ export function LeftPanel({ onAddPipeline }: LeftPanelProps) {
             });
         } finally {
             setIsAdding(false);
+        }
+    }
+
+    async function handleRemoveAllPipelines() {
+        setIsRemovingAll(true);
+
+        try {
+            await onRemoveAllPipelines();
+        } finally {
+            setIsRemovingAll(false);
         }
     }
 
@@ -59,7 +72,7 @@ export function LeftPanel({ onAddPipeline }: LeftPanelProps) {
 
             <Stack gap="xs" mt={4}>
                 <StyledTextInput
-                    label="Instances (1-50)"
+                    label="Instances to add (1-50)"
                     placeholder="1"
                     value={streamCount}
                     onChange={setStreamCount}
@@ -72,6 +85,29 @@ export function LeftPanel({ onAddPipeline }: LeftPanelProps) {
                         onClick={() => handleAddPipeline(device)}
                     />
                 ))}
+
+                <Button
+                    fullWidth
+                    radius={4}
+                    loading={isRemovingAll}
+                    disabled={isAdding}
+                    onClick={handleRemoveAllPipelines}
+                    styles={{
+                        root: {
+                            height: 38,
+                            marginTop: 8,
+                            background: "rgba(228,34,34,0.14)",
+                            color: accent.red,
+                            border: "1px solid rgba(228,34,34,0.45)",
+                            fontSize: 12,
+                            fontWeight: 900,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.13em",
+                        },
+                    }}
+                >
+                    Remove all pipelines
+                </Button>
             </Stack>
         </Stack>
     );

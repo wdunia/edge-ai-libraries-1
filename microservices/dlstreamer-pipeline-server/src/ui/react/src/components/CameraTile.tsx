@@ -94,7 +94,6 @@ export function CameraTile({ stream, onDelete, onClone }: CameraTileProps) {
                     <iframe
                         src={stream.streamUrl}
                         title={stream.name}
-                        onLoad={() => console.log("[DLStreamer] iframe loaded:", stream.streamUrl)}
                         style={{
                             width: "100%",
                             height: "100%",

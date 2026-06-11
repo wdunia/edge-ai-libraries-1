@@ -13,7 +13,8 @@ import {
   getStreamUrl,
   type HealthStatus,
 } from "./api/dlStreamerApi";
-
+import { deleteAllPipelines } from "./api/dlStreamerApi";
+import { appConfig } from "./config/appConfig";
 
 type LayoutMode = 1 | 4 | 9 | 16 | 25 | 36;
 
@@ -142,6 +143,22 @@ function App() {
 
   const totalFps = streams.reduce((sum, stream) => sum + stream.fps, 0);
 
+  async function handleRemoveAllPipelines() {
+    const pipelineStatuses = await getPipelineStatus();
+
+    const runningPipelineIds = pipelineStatuses
+      .filter(
+        (pipeline) =>
+          pipeline.state === "RUNNING" ||
+          pipeline.state === "QUEUED"
+      )
+      .map((pipeline) => pipeline.id);
+
+    await deleteAllPipelines(runningPipelineIds);
+
+    setStreams([]);
+  }
+
   return (
     <AppShell
       padding="md"
@@ -198,6 +215,28 @@ function App() {
                 </Text>
               </div>
             </Group>
+          </Paper>
+
+          <Paper
+            px="md"
+            py="sm"
+            radius="md"
+            bg={bg.panel}
+            withBorder
+            style={{
+              borderColor: bg.border,
+              height: 62,
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <Text
+              size="xs"
+              c="white"
+              mt={2}
+            >
+              {appConfig.systemInfo}
+            </Text>
           </Paper>
 
           <Group gap="md" align="stretch" wrap="nowrap">
@@ -318,7 +357,8 @@ function App() {
           {/* Left Panel */}
           <Grid.Col span={2}>
             <Paper p="md" h={480} radius="md" bg={bg.panel}>
-              <LeftPanel onAddPipeline={handleAddPipeline} />
+              <LeftPanel onAddPipeline={handleAddPipeline}
+                onRemoveAllPipelines={handleRemoveAllPipelines} />
             </Paper>
           </Grid.Col>
 
