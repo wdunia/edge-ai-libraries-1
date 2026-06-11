@@ -13,8 +13,4 @@ export const HEALTH_CHECK_URL: string =
 export const MODEL_URL: string =
   import.meta.env.VITE_BACKEND_SERVICE_ENDPOINT + '/model';
 export const MAX_TOKENS: number =
-  Number(import.meta.env.VITE_MAX_TOKENS);
-export const METRICS_URL: string =
-  import.meta.env.VITE_METRICS_SERVICE_ENDPOINT;
-export const SYSTEM_INFO: string =
-  import.meta.env.VITE_SYSTEM_INFO
+  Number(import.meta.env.VITE_MAX_TOKENS) || 512;

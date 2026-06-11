@@ -1,0 +1,127 @@
+.chartsPanel {
+    flex: 0 0 300px;
+    height: 300px;
+    min-height: 300px;
+    width: 100%;
+    overflow: hidden;
+
+    background: #070d2d;
+    border-top: 1px solid #1b2652;
+    padding: 10px 14px 12px;
+}
+
+.chartsHeader {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.liveDot,
+.offlineDot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+}
+
+.liveDot {
+    background: #62ce58;
+}
+
+.offlineDot {
+    background: #e42222;
+}
+
+.chartsTitle {
+    font-size: 10px;
+    color: #556080;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+}
+
+.chartsGrid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    height: calc(100% - 24px);
+    min-height: 0;
+}
+
+.chartCard,
+.gpuCard {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background: #0f1b43;
+    border: 1px solid #1b2652;
+    border-radius: 8px;
+    padding: 9px 10px;
+    display: flex;
+    flex-direction: column;
+}
+
+.chartCardHead {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+    flex-shrink: 0;
+}
+
+.chartCardLabel,
+.gpuTitle {
+    font-size: 10px;
+    color: #8899cc;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.chartCardValue {
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.chartWrap {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+}
+
+.gpuCard {
+    grid-column: 1 / -1;
+    height: 170px;
+}
+
+.gpuHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+
+.gpuLegend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.gpuLegendItem {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: #6a85a8;
+    text-transform: lowercase;
+}
+
+.gpuLegendDot {
+    width: 8px;
+    height: 2px;
+    border-radius: 999px;
+    flex-shrink: 0;
+}
