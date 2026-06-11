@@ -74,7 +74,6 @@ export HOST_IP=$ip
 export GETI_SERVER_SSL_VERIFY=False 
 
 tmux new-session -d -s metrics-manager "docker run --rm --privileged --name metrics-manager \
-  --net chat-question-and-answer_my_network \
   --device /dev/dri \
   -p 9090:9090 \
   -p 9273:9273 \
