@@ -117,7 +117,7 @@ export async function createCameraPipeline(
     model_path: palletDefectDetectionModelPath,
     target_device: device,
   });
-
+  index = index
   const response = await fetch(
     `${appConfig.apiUrl}/pipeline/add?${params.toString()}`,
     {

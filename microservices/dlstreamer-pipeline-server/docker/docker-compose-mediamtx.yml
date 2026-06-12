@@ -150,9 +150,9 @@ services:
     networks:
       - app_network
 
-  dlstreamer-pipeline-sever-ui:
+  dlstreamer-pipeline-server-be:
     image: ${REGISTRY:-}dlstreamer-pipeline-server-ui-1.0
-    container_name: dlstreamer-pipeline-server-ui
+    container_name: dlstreamer-pipeline-server-be
     environment:
       - ip=${ip}
       - HOST_IP=${ip}
@@ -161,6 +161,17 @@ services:
       dockerfile: docker/Dockerfile
     ports:
       - '8888:8888'
+    user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
+    networks:
+      - app_network
+
+  dlstreamer-pipeline-server-ui:
+    container_name: dlstreamer-pipeline-server-fe
+    build:
+      context: ../src/ui/react
+      dockerfile: Dockerfile
+    ports:
+      - '8101:8101'
     user: "${USER_ID:-1000}:${GROUP_ID:-1000}"
     networks:
       - app_network
