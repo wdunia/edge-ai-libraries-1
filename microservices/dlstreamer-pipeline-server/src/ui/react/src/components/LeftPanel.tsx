@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button, Stack, Text, TextInput } from "@mantine/core";
 import { accent, bg, pipelineTypeConfig, type DeviceType } from "../styles/theme";
+import { appConfig } from "../config/appConfig";
 
 const devices: DeviceType[] = ["GPU", "NPU", "CPU"];
 
@@ -17,7 +18,7 @@ type LeftPanelProps = {
 
 export function LeftPanel({ onAddPipeline, onRemoveAllPipelines }: LeftPanelProps) {
     const [streamName, setStreamName] = useState("CAM-01");
-    const [streamUrl, setStreamUrl] = useState("");
+    const [streamUrl, setStreamUrl] = useState(appConfig.defaultStreamUrl);
     const [isAdding, setIsAdding] = useState(false);
     const [streamCount, setStreamCount] = useState("1");
     const [isRemovingAll, setIsRemovingAll] = useState(false);
@@ -64,7 +65,7 @@ export function LeftPanel({ onAddPipeline, onRemoveAllPipelines }: LeftPanelProp
 
                 <StyledTextInput
                     label="Stream URL"
-                    placeholder=""
+                    placeholder={appConfig.defaultStreamUrl}
                     value={streamUrl}
                     onChange={setStreamUrl}
                 />

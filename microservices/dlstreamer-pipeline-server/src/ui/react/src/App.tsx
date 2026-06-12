@@ -11,6 +11,7 @@ import {
   deletePipeline,
   getPipelineStatus,
   getStreamUrl,
+  getStreamInfo,
   type HealthStatus,
 } from "./api/dlStreamerApi";
 import { deleteAllPipelines } from "./api/dlStreamerApi";
@@ -68,16 +69,18 @@ function App() {
 
     const restoredStreams = await Promise.all(
       visiblePipelines.map(async (pipeline, index) => {
-        const streamUrl =
-          pipeline.state === "RUNNING" ? await getStreamUrl(pipeline.id) : null;
+        const streamInfo =
+          pipeline.state === "RUNNING"
+            ? await getStreamInfo(pipeline.id)
+            : { streamUrl: null, device: null };
 
         return {
           id: index + 1,
           streamId: pipeline.id,
           name: `CAM-${String(index + 1).padStart(2, "0")}`,
-          type: "CPU" as const,
+          type: streamInfo.device ?? "CPU",
           fps: Math.round(pipeline.frame_fps ?? pipeline.avg_fps ?? 0),
-          streamUrl: streamUrl ?? undefined,
+          streamUrl: streamInfo.streamUrl ?? undefined,
           status: pipeline.state,
         };
       })
