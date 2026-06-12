@@ -45,53 +45,89 @@ export type StreamResponse = {
   >;
 };
 
-export async function getStreamUrl(streamId: string): Promise<string | null> {
+export async function getStreamInfo(streamId: string): Promise<StreamInfo> {
   const response = await fetch(`${appConfig.apiUrl}/stream/${streamId}`);
 
   if (!response.ok) {
-    throw new Error(`Failed to get stream url. Status: ${response.status}`);
+    throw new Error(`Failed to get stream info. Status: ${response.status}`);
   }
 
   const data = (await response.json()) as StreamResponse;
-  const rawMetadata = data.metadata;
-  const rawStreamValue = rawMetadata?.[streamId];
+  const rawStreamValue = data.metadata?.[streamId];
+
   const rawUrl = rawStreamValue?.url;
+  const rawDevice = rawStreamValue?.target_device;
 
   const streamUrl = typeof rawUrl === "string" ? rawUrl.trim() : null;
 
-  if (!streamUrl) {
-    console.warn("[DLStreamer] Missing stream URL:", {
-      streamId,
-      rawMetadata,
-      rawStreamValue,
-    });
+  const device =
+    rawDevice === "GPU" || rawDevice === "NPU" || rawDevice === "CPU"
+      ? rawDevice
+      : null;
 
-    return null;
-  }
-
-  if (!streamUrl.startsWith(appConfig.webrtcUrl)) {
-    console.warn("[DLStreamer] Invalid stream URL:", {
-      streamId,
-      streamUrl,
-    });
-
-    return null;
-  }
-
-  if (
-    streamUrl.includes("{") ||
-    streamUrl.includes("status: error")
-  ) {
-    // console.warn("[DLStreamer] Backend returned error as stream URL:", {
-    //   streamId,
-    //   streamUrl,
-    // });
-
-    return null;
-  }
-
-  return streamUrl.endsWith("/") ? streamUrl : `${streamUrl}/`;
+  return {
+    streamUrl:
+      streamUrl && streamUrl.startsWith(appConfig.webrtcUrl)
+        ? streamUrl.endsWith("/")
+          ? streamUrl
+          : `${streamUrl}/`
+        : null,
+    device,
+  };
 }
+
+export async function getStreamUrl(streamId: string): Promise<string | null> {
+  const info = await getStreamInfo(streamId);
+  return info.streamUrl;
+}
+
+// export async function getStreamUrl(streamId: string): Promise<string | null> {
+//   const response = await fetch(`${appConfig.apiUrl}/stream/${streamId}`);
+
+//   if (!response.ok) {
+//     throw new Error(`Failed to get stream url. Status: ${response.status}`);
+//   }
+
+//   const data = (await response.json()) as StreamResponse;
+//   const rawMetadata = data.metadata;
+//   const rawStreamValue = rawMetadata?.[streamId];
+//   const rawUrl = rawStreamValue?.url;
+
+//   const streamUrl = typeof rawUrl === "string" ? rawUrl.trim() : null;
+
+//   if (!streamUrl) {
+//     console.warn("[DLStreamer] Missing stream URL:", {
+//       streamId,
+//       rawMetadata,
+//       rawStreamValue,
+//     });
+
+//     return null;
+//   }
+
+//   if (!streamUrl.startsWith(appConfig.webrtcUrl)) {
+//     console.warn("[DLStreamer] Invalid stream URL:", {
+//       streamId,
+//       streamUrl,
+//     });
+
+//     return null;
+//   }
+
+//   if (
+//     streamUrl.includes("{") ||
+//     streamUrl.includes("status: error")
+//   ) {
+//     // console.warn("[DLStreamer] Backend returned error as stream URL:", {
+//     //   streamId,
+//     //   streamUrl,
+//     // });
+
+//     return null;
+//   }
+
+//   return streamUrl.endsWith("/") ? streamUrl : `${streamUrl}/`;
+// }
 
 export type CreatedPipeline = {
   streamId: string;
@@ -104,9 +140,13 @@ export type AddPipelineResponse = {
   message: string;
 };
 
-const palletDefectDetectionModelPath =
-  "/home/fst/edge-ai-libraries/microservices/dlstreamer-pipeline-server/resources/models/geti/pallet_defect_detection/deployment/Detection/model/model.xml";
-  
+export type StreamInfo = {
+  streamUrl: string | null;
+  device: DeviceType | null;
+};
+
+const palletDefectDetectionModelPath = appConfig.modelPath;
+
 export async function createCameraPipeline(
   device: DeviceType,
   sourceUri: string,
@@ -145,12 +185,12 @@ export async function createCameraPipeline(
 
   const streamId = data.message.replaceAll('"', "").trim();
 
-  const streamUrl = await getStreamUrl(streamId);
+  const streamInfo = await getStreamInfo(streamId);
 
   return {
     streamId,
     peerId: streamId,
-    streamUrl: streamUrl ?? `${appConfig.webrtcUrl}/${streamId}/`,
+    streamUrl: streamInfo.streamUrl ?? `${appConfig.webrtcUrl}/${streamId}/`,
   };
 }
 
