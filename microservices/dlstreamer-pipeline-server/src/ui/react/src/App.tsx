@@ -10,7 +10,6 @@ import {
   createCameraPipeline,
   deletePipeline,
   getPipelineStatus,
-  getStreamUrl,
   getStreamInfo,
   type HealthStatus,
 } from "./api/dlStreamerApi";
