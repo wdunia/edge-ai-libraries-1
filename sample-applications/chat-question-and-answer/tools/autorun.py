@@ -82,7 +82,8 @@ def main():
     set_window(driver=localai, x=int(half_width)+1, y=0, width=half_width, height=height)
     time.sleep(5)
     Thread(target=insert_prompt_gpt, args=(chatgpt, my_prompt)).start()
-    Thread(target=insert_prompt_local, args(localai, my_prompt)).start()
+    Thread(target=insert_prompt_local, args=(localai, my_prompt)).start()
+    input("is ok?")
     time.sleep(999)
     
     
