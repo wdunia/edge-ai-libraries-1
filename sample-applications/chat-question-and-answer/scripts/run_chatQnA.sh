@@ -97,7 +97,7 @@ echo $PWD
 
 echo "=== STARTING MODEL DOWNLOAD MICROSERVICE (REQUIRED TO DOWNLOAD TARGET_MODEL) ==="
 echo "--> To attach to model download TMUX session type: tmux attach-session -t model_download"
-tmux new-session -d -s model_download -c "$PWD/microservices/model-download" "sg docker -c 'source scripts/run_service.sh up --plugins all --model-path /home/$username/host_path'"
+tmux new-session -d -s model_download -c "$PWD/microservices/model-download" "sg docker -c 'bash -c \"source scripts/run_service.sh up --plugins all --model-path /home/$username/host_path\"'"
 
 echo "=== CONTAINERS STARTED IN THE BACKGROUND, WAITING FOR API HEALTHY MESSAGE ==="
 # Endless loop trying to get proper response from microservice backend.
@@ -137,7 +137,7 @@ sed -i "s|VITE_METRICS_SERVICE_ENDPOINT=APP_METRICS_URL|VITE_METRICS_SERVICE_END
 cd ../../
 
 echo "=== STARTING CHAT QNA SAMPLE APP IN THE BACKGROUND ==="
-tmux new-session -d -s chatqna -c $PWD 'source setup.sh llm=OVMS embed=OVMS; sg docker -c "docker compose up --build"'
+tmux new-session -d -s chatqna -c "$PWD" "bash -c 'source setup.sh llm=OVMS embed=OVMS; sg docker -c \"docker compose up --build\"'"
 echo "=== CONTAINERS STARTED IN THE BACKGROUND, WAITING FOR API HEALTHY MESSAGE ==="
 echo "---> To open TMUX session with dlstreamer open new terminal session and type: tmux attach-session -t chatqna"
 
