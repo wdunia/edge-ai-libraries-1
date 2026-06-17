@@ -83,28 +83,27 @@ export GETI_SERVER_SSL_VERIFY=False
 
 echo " === STARTING METRICS_SERVER CONTAINER ==="
 
-tmux new-session -d -s metrics-manager "docker run --rm --privileged --name metrics-manager \
+tmux new-session -d -s metrics-manager "sg docker -c 'docker run --rm --privileged --name metrics-manager \
   --device /dev/dri \
   -p 9090:9090 \
   -p 9273:9273 \
   -v /sys:/sys:ro \
   -v /run:/run:ro \
   --pid host \
-  intel/metrics-manager:2026.1.0-20260508-weekly"
+  intel/metrics-manager:2026.1.0-20260508-weekly'"
 
 cd ../../../
 echo $PWD
 
 echo "=== STARTING MODEL DOWNLOAD MICROSERVICE (REQUIRED TO DOWNLOAD TARGET_MODEL) ==="
 echo "--> To attach to model download TMUX session type: tmux attach-session -t model_download"
-
-tmux new-session -d -s model_download -c $PWD/microservices/model-download "source scripts/run_service.sh up --plugins all --model-path /home/$username/host_path"
+tmux new-session -d -s model_download -c "$PWD/microservices/model-download" "sg docker -c 'source scripts/run_service.sh up --plugins all --model-path /home/$username/host_path'"
 
 echo "=== CONTAINERS STARTED IN THE BACKGROUND, WAITING FOR API HEALTHY MESSAGE ==="
 # Endless loop trying to get proper response from microservice backend.
 
 while true; do
-    response=$(curl -X GET "http://$ip:8200/api/v1/health")
+    response=$(curl -s -X GET "http://localhost:8200/health")
     if [[ $response = '{"status":"ok"}' ]]; then
         break
     else
@@ -134,7 +133,7 @@ echo "=== UPDATING REQUIRED ENVIRONMENT VARIABLES ==="
 
 cd ui/react
 sed -i 's/VITE_MAX_TOKENS=APP_MAX_TOKENS/VITE_MAX_TOKENS=32768/' .env
-sed -i "s|VITE_METRICS_SERVICE_ENDPOINT=APP_METRICS_URL|VITE_METRICS_SERVICE_ENDPOINT=http://${IP}:8100/metrics|" .env
+sed -i "s|VITE_METRICS_SERVICE_ENDPOINT=APP_METRICS_URL|VITE_METRICS_SERVICE_ENDPOINT=http://${ip}:8100/metrics|" .env
 cd ../../
 
 echo "=== STARTING CHAT QNA SAMPLE APP IN THE BACKGROUND ==="
@@ -144,7 +143,7 @@ echo "---> To open TMUX session with dlstreamer open new terminal session and ty
 
 # Endless loop trying to get proper response from app backend.
 while true; do
-    response=$(curl -X GET "http://$ip:8101/api/v1/health")
+    response=$(curl -s -X GET "http://localhost:8100/health")
     if [[ $response = '[{"status":"healthy","details":"LLM model server is ready to serve"},{"status":"healthy","details":"Embedding model server is ready to serve"}]' ]]; then
         break
     else

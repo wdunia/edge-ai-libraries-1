@@ -57,14 +57,14 @@ done
 
 echo " === STARTING METRICS_SERVER CONTAINER ==="
 
-tmux new-session -d -s metrics-manager "docker run --rm --privileged --name metrics-manager \
+tmux new-session -d -s metrics-manager "sg docker -c 'docker run --rm --privileged --name metrics-manager \
   --device /dev/dri \
   -p 9090:9090 \
   -p 9273:9273 \
   -v /sys:/sys:ro \
   -v /run:/run:ro \
   --pid host \
-  intel/metrics-manager:2026.1.0-20260508-weekly"
+  intel/metrics-manager:2026.1.0-20260508-weekly'"
 
 echo "=== UPDATING REQUIRED ENVIRONMENT VARIABLES ==="
 # Due to issue where during container build process env variables are converted into static values before env variables are set
@@ -83,12 +83,11 @@ sed -i "s|VITE_PROMETHEUS_URL=VITE_PROMETHEUS_URL|VITE_PROMETHEUS_URL=http://${i
 sed -i "s|VITE_SYSTEM_INFO=TEXT_TO_SHOW_IN_HEADER_EG_CPU: Intel Core Ultra 7 265H|'CPU: Intel Core i7 265H | GPU: Intel Arc B350 | NPU: Intel Ai Boost | RAM: 64GB'|" .env
 sed -i "s|VITE_MODEL_PATH=VITE_MODEL_PATH|VITE_MODEL_PATH=${model_path}|" .env
 sed -i "s|VITE_DEFAULT_STREAM_URL=VITE_DEFAULT_STREAM_URL|VITE_DEFAULT_STREAM_URL=rtsp://${ip}:8554/camera0|" .env
-
-cd ../../../../
+cd ../../../
 echo $PWD
 
 echo "=== STARTING DL-STREAMER PIPELINE SERVER MICROSERVICE ==="
-tmux new-session -d -s dlstreamer -c $PWD 'sg docker compose --env-file docker/.env -f docker/docker-compose-mediamtx.yml up --build'
+tmux new-session -d -s dlstreamer -c "$PWD" "sg docker -c 'docker compose --env-file docker/.env -f docker/docker-compose-mediamtx.yml up --build'"
 
 echo "=== CONTAINERS STARTED IN THE BACKGROUND, WAITING FOR API HEALTHY MESSAGE ==="
 echo "---> To open TMUX session with dlstreamer open new terminal session and type: tmux attach-session -t dlstreamer"
@@ -96,7 +95,7 @@ echo "---> To open TMUX session with dlstreamer open new terminal session and ty
 # Endless loop trying to get proper response from microservice backend.
 
 while true; do
-    response=$(curl -X GET "http://$ip:8888/api/v1/health")
+    response=$(curl -s -X GET "http://localhost:8888/health")
     if [[ $response = '{"status": "Success", "message": "Service is up and running."}' ]]; then
         break
     else
@@ -114,7 +113,7 @@ echo "--> To attach to ffmpeg session type: tmux attach-session -t ffmpeg-rtsp"
 # Do NOT try to use VAAPI (HW) for encoding. RTSP Stream may be broken then. Also it uses GPU processing capacity
 # that should be reserved for DL-Streamer purposes only.
 
-tmux new-session -d -s ffmpeg-rtsp 'sudo ffmpeg -f v4l2 -i /dev/video0 -c:v libx264 -preset ultrafast -tune zerolatency   -f rtsp   -rtsp_transport tcp   -reconnect 1   -reconnect_at_eof 1   -reconnect_streamed 1   -reconnect_delay_max 5 rtsp://10.102.14.10:8554/camera0'
+tmux new-session -d -s ffmpeg-rtsp "sudo ffmpeg -f v4l2 -i /dev/video0 -c:v libx264 -preset ultrafast -tune zerolatency -f rtsp -rtsp_transport tcp -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5 rtsp://${ip}:8554/camera0"
 
 echo "=== WE ARE ALL SET! OPENING BROWSER ==="
 
