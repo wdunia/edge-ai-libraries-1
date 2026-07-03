@@ -15,6 +15,12 @@ chmod +x ./install_dlStreamer.sh ./run_dlStreamer.sh
 ./run_dlStreamer.sh
 ```
 
+If a previous run crashed and left tmux sessions or Docker containers behind, restart cleanly with:
+
+```sh
+./run_dlStreamer.sh --force-restart
+```
+
 Follow the instructions in the terminal.
 
 The runtime script will ask whether the detected `model.xml` path is correct:
@@ -26,6 +32,7 @@ The runtime script will ask whether the detected `model.xml` path is correct:
 - The runtime script waits for the UI backend on port `8888` and the main pipeline server on port `8080`.
 - Waiting is limited by `MAX_WAIT_SECONDS` (default: `1800`).
 - If startup takes too long, the script exits with a timeout message instead of retrying forever.
+- If existing runtime state is detected, the script exits with guidance unless `--force-restart` is provided.
 
 If you need a different timeout, export it before running the script:
 

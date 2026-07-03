@@ -19,6 +19,7 @@ COMPOSE_FILE="${DOCKER_DIR}/docker-compose-mediamtx.yml"
 DEFAULT_MODEL_PATH="${PROJECT_ROOT}/resources/models/geti/pallet_defect_detection/deployment/Detection/model/model.xml"
 SYSTEM_INFO_TEXT="CPU: Intel Core i7 265H | GPU: Intel Arc B350 | NPU: Intel Ai Boost | RAM: 64GB"
 MAX_WAIT_SECONDS="${MAX_WAIT_SECONDS:-1800}"
+FORCE_RESTART=false
 
 TEMP_DIR="$(mktemp -d)"
 
@@ -51,6 +52,87 @@ require_file() {
         echo "Required file not found: $1" >&2
         exit 1
     }
+}
+
+usage() {
+    cat <<'EOF'
+Usage: ./run_dlStreamer.sh [--force-restart] [--help]
+
+Options:
+  --force-restart  Stop existing related tmux sessions/containers before startup.
+  --help           Show this help message.
+EOF
+}
+
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --force-restart)
+                FORCE_RESTART=true
+                ;;
+            --help|-h)
+                usage
+                exit 0
+                ;;
+            *)
+                echo "Unknown argument: $1" >&2
+                usage >&2
+                exit 1
+                ;;
+        esac
+        shift
+    done
+}
+
+run_docker_cmd() {
+    sg docker -c "$1"
+}
+
+compose_ps_any() {
+    run_docker_cmd "docker compose --env-file \"${DOCKER_ENV_FILE}\" -f \"${COMPOSE_FILE}\" ps -aq"
+}
+
+container_exists() {
+    local name="$1"
+    [[ -n "$(run_docker_cmd "docker ps -aq --filter name=^/${name}$")" ]]
+}
+
+restart_existing_runtime_if_needed() {
+    local has_tmux=false
+    local has_metrics=false
+    local has_compose=false
+
+    if tmux has-session -t metrics-manager 2>/dev/null || \
+       tmux has-session -t dlstreamer 2>/dev/null || \
+       tmux has-session -t ffmpeg-rtsp 2>/dev/null; then
+        has_tmux=true
+    fi
+
+    if container_exists "metrics-manager"; then
+        has_metrics=true
+    fi
+
+    if [[ -n "$(compose_ps_any)" ]]; then
+        has_compose=true
+    fi
+
+    if [[ "$FORCE_RESTART" == "false" ]] && { [[ "$has_tmux" == "true" ]] || [[ "$has_metrics" == "true" ]] || [[ "$has_compose" == "true" ]]; }; then
+        echo "Existing runtime detected (tmux sessions and/or Docker containers)." >&2
+        echo "Run again with --force-restart to restart cleanly." >&2
+        echo "Example: ./run_dlStreamer.sh --force-restart" >&2
+        exit 1
+    fi
+
+    if [[ "$FORCE_RESTART" == "true" ]]; then
+        echo "=== FORCE RESTART ENABLED: STOPPING EXISTING RUNTIME ==="
+
+        tmux kill-session -t ffmpeg-rtsp 2>/dev/null || true
+        tmux kill-session -t dlstreamer 2>/dev/null || true
+        tmux kill-session -t metrics-manager 2>/dev/null || true
+
+        run_docker_cmd "docker compose --env-file \"${DOCKER_ENV_FILE}\" -f \"${COMPOSE_FILE}\" down --remove-orphans" || true
+        run_docker_cmd "docker rm -f metrics-manager >/dev/null 2>&1 || true" || true
+    fi
 }
 
 start_tmux_session() {
@@ -159,6 +241,8 @@ wait_for_http_200() {
 }
 
 main() {
+    parse_args "$@"
+
     require_cmd curl
     require_cmd docker
     require_cmd python3
@@ -168,6 +252,8 @@ main() {
     require_file "${DOCKER_ENV_FILE}"
     require_file "${UI_ENV_FILE}"
     require_file "${COMPOSE_FILE}"
+
+    restart_existing_runtime_if_needed
 
     echo "=== CONFIGURE DEMO APP ==="
 
