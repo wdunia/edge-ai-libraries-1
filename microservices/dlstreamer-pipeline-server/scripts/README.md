@@ -1,43 +1,72 @@
-# Dl-Streamer Pipeline Server startup script
+# DL Streamer Pipeline Server helper scripts
 
-This script is made to run Dl-Streamer Pipeline Server microservice using predefined values.
+These scripts are intended to run the DL Streamer Pipeline Server demo with predefined values.
 
-usage:
-`sh
-chmod +x ./run_dlStreamer.sh
+## Scripts
+
+- `install_dlStreamer.sh` - one-time host provisioning for dependencies such as Docker, tmux, Python tooling, and Google Chrome.
+- `run_dlStreamer.sh` - runtime launcher for the demo environment.
+
+## Usage
+
+```sh
+chmod +x ./install_dlStreamer.sh ./run_dlStreamer.sh
+./install_dlStreamer.sh
 ./run_dlStreamer.sh
-`
-follow instructions in terminal.
-script will ask if path to model.xml is correct (Y/N)
-- If Y then script will continue
-- If N then full path for model.xml is needed.
+```
 
-Rest of setup will be done automatically.
+Follow the instructions in the terminal.
 
-> Attention! script will try to get backend healthy message. This can take even up to 20 minutes on first attempt.
+The runtime script will ask whether the detected `model.xml` path is correct:
+- If `Y`, the script continues.
+- If `N`, provide the full path to `model.xml`.
 
-in case you see "retrying" keeps repeating for more than 30 minutes attach to tmux session with microservice to get logs.
-Perhaps something has gome terribly wrong due to system wrong configuration (proxy/firewall)
+## Startup behavior
 
-> Attention! this script DOES NOT setup proxy or firewall in target system.
+- The runtime script waits for the UI backend on port `8888` and the main pipeline server on port `8080`.
+- Waiting is limited by `MAX_WAIT_SECONDS` (default: `1800`).
+- If startup takes too long, the script exits with a timeout message instead of retrying forever.
 
-You need to setup it by your own.
+If you need a different timeout, export it before running the script:
 
-Script will attempt to open browser with dlStreamer Pipeline Server UI on a maximized window.
-After successful setup and deplay of microservice it should be ready to go.
+```sh
+export MAX_WAIT_SECONDS=3600
+./run_dlStreamer.sh
+```
 
-> important! Make sure You are running Xorg (X11) session instead of Wayland!
+## Environment handling
 
-How to check of You are running wayland:
+The runtime script temporarily updates:
+- `docker/.env`
+- `src/ui/react/.env`
 
-`sh
-echo $XDG_SESSION_TYPE
-`
+Those files are automatically restored when the script exits, so the repository is not left with permanent local changes.
 
-if Output is Wayland:
-1. log out
-2. click on Your username
-3. in bottom right corner of screen there will be gear icon. click it.
-4. from list select Ubuntu on Xorg
-5. enter your password
-done
+## Logs and tmux sessions
+
+The script starts long-running commands in tmux sessions. If something appears stuck, attach to the session to inspect logs:
+
+```sh
+tmux attach-session -t dlstreamer
+tmux attach-session -t metrics-manager
+tmux attach-session -t ffmpeg-rtsp
+```
+
+> Attention! These scripts do not configure proxy or firewall settings on the target system.
+
+## Display session requirement
+
+The browser automation step is intended for Xorg (X11), not Wayland.
+
+To check your current session type:
+
+```sh
+echo "$XDG_SESSION_TYPE"
+```
+
+If the output is `wayland`:
+1. Log out.
+2. Click your username.
+3. Use the gear icon in the bottom-right corner.
+4. Select **Ubuntu on Xorg**.
+5. Log in again.
