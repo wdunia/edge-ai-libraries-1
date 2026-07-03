@@ -76,13 +76,17 @@ main() {
     echo "=== CONFIGURE DOCKER ACCESS ==="
     sudo usermod -aG docker "$USER" || true
 
+    echo "=== CONFIGURE CAMERA ACCESS ==="
+    sudo usermod -aG video "$USER" || true
+
     if [[ -S /var/run/docker.sock ]]; then
         sudo chown root:docker /var/run/docker.sock
         sudo chmod 660 /var/run/docker.sock
     fi
 
     echo "=== DONE ==="
-    echo "Run ./run_dlStreamer.sh to start the demo environment."
+    echo "If you were just added to 'video' or 'docker' groups, log out and back in (or run 'newgrp video')."
+    echo "Then run ./run_dlStreamer.sh to start the demo environment."
 }
 
 main "$@"

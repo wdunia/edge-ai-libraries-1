@@ -399,14 +399,24 @@ main() {
     echo "--> To attach to ffmpeg session type: tmux attach-session -t ffmpeg-rtsp"
 
     # in case of multiple cameras in system change path to camera f.ex /dev/videoX
-    # Attention! ffmpeg command MUST be executed with ROOT access.
+    # User must be in 'video' group to access camera without sudo.
+    # Run install_dlStreamer.sh to configure this automatically.
     #
     # Do NOT try to use VAAPI (HW) for encoding. RTSP Stream may be broken then. Also it uses GPU processing capacity
     # that should be reserved for DL-Streamer purposes only.
-    start_tmux_session \
-        "ffmpeg-rtsp" \
-        "${PROJECT_ROOT}" \
-        "sudo ffmpeg -f v4l2 -i /dev/video0 -c:v libx264 -preset ultrafast -tune zerolatency -f rtsp -rtsp_transport tcp -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5 rtsp://${ip}:8554/camera0"
+
+    local camera_device="${CAMERA_DEVICE:-/dev/video0}"
+
+    if [[ ! -r "$camera_device" ]]; then
+        echo "WARNING: Cannot read ${camera_device}." >&2
+        echo "Make sure the device exists and your user is in the 'video' group." >&2
+        echo "Skipping RTSP camera stream setup." >&2
+    else
+        start_tmux_session \
+            "ffmpeg-rtsp" \
+            "${PROJECT_ROOT}" \
+            "ffmpeg -f v4l2 -i ${camera_device} -c:v libx264 -preset ultrafast -tune zerolatency -f rtsp -rtsp_transport tcp -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5 rtsp://${ip}:8554/camera0"
+    fi
 
     echo "=== WE ARE ALL SET! OPENING BROWSER ==="
 
