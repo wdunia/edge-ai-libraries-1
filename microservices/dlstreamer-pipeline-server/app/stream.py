@@ -12,7 +12,12 @@ class Stream:
         self.data = None  # Placeholder for additional stream data
         self.payload = None  # Placeholder for stream configuration payload
         self.metadata = None
-        self.ip = os.environ.get("ip")
+        # Internal Docker hostname for backend-to-backend calls (same docker network)
+        self.pipeline_server_host = os.environ.get(
+            "PIPELINE_SERVER_HOST", "dlstreamer-pipeline-server"
+        )
+        # External host IP for URLs that reach the browser (WebRTC)
+        self.external_ip = os.environ.get("HOST_IP", os.environ.get("ip", "localhost"))
         self.streaminfo = {}
 
     def add_stream(self, stream_path, model_path, target_device):
@@ -41,7 +46,7 @@ class Stream:
         }
         }
 
-        url = f"http://{self.ip}:8080/pipelines/user_defined_pipelines/pallet_defect_detection"
+        url = f"http://{self.pipeline_server_host}:8080/pipelines/user_defined_pipelines/pallet_defect_detection"
         response = requests.post(url, json=self.payload, headers={"Content-Type": "application/json"})
         response.raise_for_status()
         self.stream_id = response.text.replace('"', '').strip()
@@ -52,26 +57,26 @@ class Stream:
 
     def view_metadata(self, file_path):
         file_path = urllib.parse.quote(file_path)
-        url = f"http://{self.ip}:8080/metadata/{file_path}"
+        url = f"http://{self.pipeline_server_host}:8080/metadata/{file_path}"
         self.metadata = requests.get(url)
         return self.metadata.text
     
     def view_pipeline(self):
-        url = f"http://{self.ip}:8080/pipelines/status"
+        url = f"http://{self.pipeline_server_host}:8080/pipelines/status"
         self.data = requests.get(url)
         return self.data.text
     
 
     def delete_stream(self, stream_id: str):
-        url = f"http://{self.ip}:8080/pipelines/{stream_id}"
+        url = f"http://{self.pipeline_server_host}:8080/pipelines/{stream_id}"
         requests.delete(url)
         return {"message": f"Stream {stream_id} deleted successfully."}
     
     def view_stream(self, stream_id: str):
-        url = f"http://{self.ip}:8080/stream/{stream_id}"
+        url = f"http://{self.pipeline_server_host}:8080/stream/{stream_id}"
         response = requests.get(url)
         escaped_response = response.text.replace('"', '')
-        self.stream_url = f"http://{self.ip}:8889/{escaped_response}"
+        self.stream_url = f"http://{self.external_ip}:8889/{escaped_response}"
         target_device = self.streaminfo.get(stream_id)
         return {f"{stream_id}": {"target_device": f"{target_device}", "url": f"{self.stream_url}"}}
     
