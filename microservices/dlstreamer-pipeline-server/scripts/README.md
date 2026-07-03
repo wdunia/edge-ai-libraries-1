@@ -15,6 +15,21 @@ chmod +x ./install_dlStreamer.sh ./run_dlStreamer.sh
 ./run_dlStreamer.sh
 ```
 
+Optional flags:
+
+```sh
+./run_dlStreamer.sh -f
+./run_dlStreamer.sh --force-restart
+./run_dlStreamer.sh --model-path /full/path/to/model.xml
+```
+
+You can also set model path with environment variable:
+
+```sh
+export MODEL_PATH=/full/path/to/model.xml
+./run_dlStreamer.sh
+```
+
 If a previous run crashed and left tmux sessions or Docker containers behind, restart cleanly with:
 
 ```sh
@@ -23,9 +38,12 @@ If a previous run crashed and left tmux sessions or Docker containers behind, re
 
 Follow the instructions in the terminal.
 
-The runtime script will ask whether the detected `model.xml` path is correct:
-- If `Y`, the script continues.
-- If `N`, provide the full path to `model.xml`.
+Model path resolution is non-interactive and uses this order:
+1. `--model-path` / `-m`
+2. `MODEL_PATH` env var
+3. default built-in path in the script
+
+If the resolved `model.xml` file does not exist, the script exits with guidance.
 
 ## Startup behavior
 

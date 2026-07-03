@@ -20,6 +20,7 @@ DEFAULT_MODEL_PATH="${PROJECT_ROOT}/resources/models/geti/pallet_defect_detectio
 SYSTEM_INFO_TEXT="CPU: Intel Core i7 265H | GPU: Intel Arc B350 | NPU: Intel Ai Boost | RAM: 64GB"
 MAX_WAIT_SECONDS="${MAX_WAIT_SECONDS:-1800}"
 FORCE_RESTART=false
+MODEL_PATH_OVERRIDE=""
 
 TEMP_DIR="$(mktemp -d)"
 
@@ -56,19 +57,30 @@ require_file() {
 
 usage() {
     cat <<'EOF'
-Usage: ./run_dlStreamer.sh [--force-restart] [--help]
+Usage: ./run_dlStreamer.sh [--force-restart|-f] [--model-path|-m <path>] [--help]
 
 Options:
-  --force-restart  Stop existing related tmux sessions/containers before startup.
-  --help           Show this help message.
+  --force-restart, -f    Stop existing related tmux sessions/containers before startup.
+  --model-path, -m       Path to model.xml used for VITE_MODEL_PATH.
+                         Fallback order: --model-path -> MODEL_PATH env -> default path.
+  --help, -h             Show this help message.
 EOF
 }
 
 parse_args() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --force-restart)
+            --force-restart|-f)
                 FORCE_RESTART=true
+                ;;
+            --model-path|-m)
+                shift
+                if [[ $# -eq 0 ]]; then
+                    echo "Missing value for --model-path/-m" >&2
+                    usage >&2
+                    exit 1
+                fi
+                MODEL_PATH_OVERRIDE="$1"
                 ;;
             --help|-h)
                 usage
@@ -82,6 +94,27 @@ parse_args() {
         esac
         shift
     done
+}
+
+resolve_model_path() {
+    local resolved_path=""
+
+    if [[ -n "$MODEL_PATH_OVERRIDE" ]]; then
+        resolved_path="$MODEL_PATH_OVERRIDE"
+    elif [[ -n "${MODEL_PATH:-}" ]]; then
+        resolved_path="${MODEL_PATH}"
+    else
+        resolved_path="${DEFAULT_MODEL_PATH}"
+    fi
+
+    if [[ ! -f "$resolved_path" ]]; then
+        echo "model.xml not found: $resolved_path" >&2
+        echo "Provide model path using --model-path <path> or MODEL_PATH env." >&2
+        echo "Default checked path: ${DEFAULT_MODEL_PATH}" >&2
+        exit 1
+    fi
+
+    echo "$resolved_path"
 }
 
 run_docker_cmd() {
@@ -265,32 +298,11 @@ main() {
     }
     export ip="$ip"
 
-    local model_path="${DEFAULT_MODEL_PATH}"
-
-    while true; do
-        read -r -p "Is ${model_path} the correct path for model.xml? (Y/N) " answer
-
-        case "$answer" in
-            [Yy])
-                break
-                ;;
-            [Nn])
-                read -r -p "Please enter full path to model.xml: " model_path
-                ;;
-            *)
-                echo "Please answer Y or N."
-                continue
-                ;;
-        esac
-    done
-
-    [[ -f "$model_path" ]] || {
-        echo "model.xml not found: $model_path" >&2
-        exit 1
-    }
+    local model_path
+    model_path="$(resolve_model_path)"
     export model_path="$model_path"
 
-    echo "setting model_path to $model_path"
+    echo "Using model_path: $model_path"
 
     cp "${DOCKER_ENV_FILE}" "${TEMP_DIR}/docker.env.backup"
     cp "${UI_ENV_FILE}" "${TEMP_DIR}/ui.env.backup"
