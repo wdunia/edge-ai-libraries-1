@@ -15,7 +15,7 @@ browser_name = "Chrome"
 def get_ip():
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.connect(("8.8.8.8", 80))
-        local_ip=s.getsocketname()[0]
+        local_ip = s.getsockname()[0]
         return local_ip
     
     
@@ -37,7 +37,7 @@ def set_window(driver, x: int, y: int, width: int, height: int):
 
 
 def open_browser(url: str):
-    if not isinstance(url, str) or not url.startswith("http://", "https://"):
+    if not isinstance(url, str) or not url.startswith(("http://", "https://")):
         raise ValueError("Wrong URL")
     
     try:
@@ -53,7 +53,7 @@ def open_browser(url: str):
 def main():
     width, height = get_screen_resolution()
     local_ip = get_ip()
-    dlstreamer = open_browser(f"http://{local_ip}:8101", browser_name)
+    dlstreamer = open_browser(f"http://{local_ip}:8101")
     print(f"window: {browser_name}, x=0, y=0, width={width}, height={height}")
     set_window(driver=dlstreamer, x=0, y=0, width=width, height=height)
     input("is ok?")
