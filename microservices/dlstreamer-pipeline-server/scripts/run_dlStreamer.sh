@@ -17,6 +17,9 @@ UI_ENV_FILE="${UI_DIR}/.env"
 COMPOSE_FILE="${DOCKER_DIR}/docker-compose-mediamtx.yml"
 
 DEFAULT_MODEL_PATH="${PROJECT_ROOT}/resources/models/geti/pallet_defect_detection/deployment/Detection/model/model.xml"
+# Container resources prefix is extracted dynamically from the compose volume mount.
+# Can be overridden via CONTAINER_RESOURCES_PREFIX env var if needed.
+CONTAINER_RESOURCES_PREFIX="${CONTAINER_RESOURCES_PREFIX:-}"
 SYSTEM_INFO_TEXT="CPU: Intel Core i7 265H | GPU: Intel Arc B350 | NPU: Intel Ai Boost | RAM: 64GB"
 MAX_WAIT_SECONDS="${MAX_WAIT_SECONDS:-1800}"
 FORCE_RESTART=false
@@ -115,6 +118,50 @@ resolve_model_path() {
     fi
 
     echo "$resolved_path"
+}
+
+host_to_container_model_path() {
+    local host_path="$1"
+    local host_resources_dir="${PROJECT_ROOT}/resources"
+
+    if [[ -z "$CONTAINER_RESOURCES_PREFIX" ]]; then
+        CONTAINER_RESOURCES_PREFIX="$(extract_container_resources_prefix)"
+    fi
+
+    if [[ "$host_path" == "${host_resources_dir}"* ]]; then
+        local relative_part="${host_path#"${host_resources_dir}"}"
+        echo "${CONTAINER_RESOURCES_PREFIX}${relative_part}"
+    else
+        # If path doesn't start with expected prefix, pass it through unchanged
+        # (user might have provided a container path directly)
+        echo "$host_path"
+    fi
+}
+
+extract_container_resources_prefix() {
+    # Parse the compose file to find the volume mount that maps ../resources to a container path.
+    # Expected format: "../resources:<container_path>" or similar with trailing slash.
+    python3 - "${COMPOSE_FILE}" <<'PY'
+import sys
+from pathlib import Path
+
+compose_path = sys.argv[1]
+content = Path(compose_path).read_text(encoding="utf-8")
+
+for line in content.splitlines():
+    stripped = line.strip().lstrip("- ").strip('"').strip("'")
+    if "../resources:" in stripped and "/resources" in stripped:
+        # Format: ../resources:/some/container/path/ or ../resources:/some/container/path
+        parts = stripped.split(":", 1)
+        if len(parts) == 2:
+            container_path = parts[1].rstrip("/")
+            print(container_path)
+            raise SystemExit(0)
+
+print("/home/pipeline-server/resources", file=sys.stderr)
+print("WARNING: Could not extract container resources path from compose file, using fallback", file=sys.stderr)
+print("/home/pipeline-server/resources")
+PY
 }
 
 run_docker_cmd() {
@@ -302,7 +349,11 @@ main() {
     model_path="$(resolve_model_path)"
     export model_path="$model_path"
 
-    echo "Using model_path: $model_path"
+    local container_model_path
+    container_model_path="$(host_to_container_model_path "$model_path")"
+
+    echo "Using model_path (host): $model_path"
+    echo "Using model_path (container): $container_model_path"
 
     cp "${DOCKER_ENV_FILE}" "${TEMP_DIR}/docker.env.backup"
     cp "${UI_ENV_FILE}" "${TEMP_DIR}/ui.env.backup"
@@ -320,7 +371,7 @@ main() {
     update_env_var "${UI_ENV_FILE}" "VITE_WEBRTC_URL" "http://${ip}:8889"
     update_env_var "${UI_ENV_FILE}" "VITE_PROMETHEUS_URL" "http://${ip}:9999"
     update_env_var "${UI_ENV_FILE}" "VITE_SYSTEM_INFO" "${SYSTEM_INFO_TEXT}"
-    update_env_var "${UI_ENV_FILE}" "VITE_MODEL_PATH" "${model_path}"
+    update_env_var "${UI_ENV_FILE}" "VITE_MODEL_PATH" "${container_model_path}"
     update_env_var "${UI_ENV_FILE}" "VITE_DEFAULT_STREAM_URL" "rtsp://${ip}:8554/camera0"
 
     echo " === STARTING METRICS_SERVER CONTAINER ==="
