@@ -313,6 +313,7 @@ main() {
     # Attention! This is TEMPORARY WORKAROUND. A proper fix in docker-compose logic is needed.
     # For DEMO purpose only!
     # Do NOT propose this as final solution.
+    update_env_var "${DOCKER_ENV_FILE}" "ip" "${ip}"
     update_env_var "${DOCKER_ENV_FILE}" "WHIP_SERVER_IP" "${ip}"
     update_env_var "${UI_ENV_FILE}" "VITE_PIPELINE_SERVER_URL" "http://${ip}:8080"
     update_env_var "${UI_ENV_FILE}" "VITE_API_URL" "http://${ip}:8888"
