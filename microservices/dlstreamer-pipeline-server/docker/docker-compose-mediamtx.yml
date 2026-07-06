@@ -55,7 +55,7 @@ services:
       - ENABLE_RTSP=true
       - RTSP_PORT=8554
       - ENABLE_WEBRTC=true
-      - WEBRTC_SIGNALING_SERVER=http://${WHIP_SERVER_IP}:${WHIP_SERVER_PORT}
+      - WEBRTC_SIGNALING_SERVER=http://mediamtx-server:${WHIP_SERVER_PORT}
       - no_proxy=$no_proxy,${RTSP_CAMERA_IP},otel-collector,mediamtx-server
       - NO_PROXY=$no_proxy,${RTSP_CAMERA_IP},otel-collector,mediamtx-server
       - http_proxy=$http_proxy
