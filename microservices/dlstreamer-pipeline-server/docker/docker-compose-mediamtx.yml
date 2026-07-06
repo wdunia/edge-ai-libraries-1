@@ -17,6 +17,8 @@ services:
       - app_network
   dlstreamer-pipeline-server:
     image: ${DLSTREAMER_PIPELINE_SERVER_IMAGE}
+    hostname: dlstreamer-pipeline-server
+    container_name: dlstreamer-pipeline-server
     # read_only: true causes segfault in DL Streamer due to GStreamer needing writable dirs (dconf, XDG runtime).
     # Disabled until upstream image properly supports read-only root filesystem.
     # read_only: true
@@ -83,7 +85,7 @@ services:
     volumes:
       - "../resources:/home/fst/edge-ai-libraries/microservices/dlstreamer-pipeline-server/resources/"
       # - "../configs/default/config.json:/home/pipeline-server/config.json"
-      - vol_pipeline_root:/var/cache/pipeline_root:uid=1999,gid=1999
+      - vol_pipeline_root:/var/cache/pipeline_root
       - "../certificates:/MqttCerts:ro"
       - "../Certificates/ssl_server/:/run/secrets/DLStreamerPipelineServer_Server:ro"
       - "../Certificates/model_registry/:/run/secrets/ModelRegistry_Server:ro"
