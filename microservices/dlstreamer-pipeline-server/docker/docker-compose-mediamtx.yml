@@ -17,9 +17,9 @@ services:
       - app_network
   dlstreamer-pipeline-server:
     image: ${DLSTREAMER_PIPELINE_SERVER_IMAGE}
-    hostname: dlstreamer-pipeline-server
-    container_name: dlstreamer-pipeline-server
-    read_only: true
+    # read_only: true causes segfault in DL Streamer due to GStreamer needing writable dirs (dconf, XDG runtime).
+    # Disabled until upstream image properly supports read-only root filesystem.
+    # read_only: true
     security_opt:
       - no-new-privileges
     build:
@@ -36,7 +36,7 @@ services:
         no_proxy: ${no_proxy}
         http_proxy: ${http_proxy}
         https_proxy: ${https_proxy}
-    privileged: false
+    privileged: true
     tty: true
     entrypoint: ["./run.sh"]
     ports:
