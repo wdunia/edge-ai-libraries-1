@@ -60,7 +60,7 @@ services:
       - NO_PROXY=$no_proxy,${RTSP_CAMERA_IP},otel-collector,mediamtx-server
       - http_proxy=$http_proxy
       - https_proxy=$https_proxy
-      - GST_DEBUG=1
+      - GST_DEBUG=3
       - LOG_LEVEL=${LOG_LEVEL}
       - ADD_UTCTIME_TO_METADATA=true
       - HTTPS=false # Make it "true" to enable SSL/TLS secure mode, mount the generated certificates
