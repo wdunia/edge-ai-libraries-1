@@ -83,7 +83,7 @@ services:
       # NPU related environment variables
       - ZE_ENABLE_ALT_DRIVERS=libze_intel_npu.so
     volumes:
-      - "../resources:/home/fst/edge-ai-libraries/microservices/dlstreamer-pipeline-server/resources/"
+      - "../resources:/home/pipeline-server/resources/"
       # - "../configs/default/config.json:/home/pipeline-server/config.json"
       - vol_pipeline_root:/var/cache/pipeline_root
       - "../certificates:/MqttCerts:ro"
