@@ -29,18 +29,32 @@ class Stream:
 
     def add_stream(self, stream_path: str, model_path: str, target_device: str) -> str:
         hex_v = os.urandom(8).hex()
-        is_rtsp_source = urlparse(stream_path).scheme.lower() == "rtsp"
+        source_scheme = urlparse(stream_path).scheme.lower()
+        is_rtsp_source = source_scheme == "rtsp"
+        is_file_source = source_scheme == "file"
         pipeline_version = (
             "pallet_defect_detection_rtsp"
             if is_rtsp_source
+            else "pallet_defect_detection_file_loop" if is_file_source
             else "pallet_defect_detection"
+        )
+        source = (
+            {
+                "type": "gst",
+                "element": (
+                    "multifilesrc loop=TRUE stop-index=0 "
+                    f"location=\"{urllib.parse.unquote(urlparse(stream_path).path)}\""
+                ),
+            }
+            if is_file_source
+            else {
+                "uri": stream_path,
+                "type": "uri",
+            }
         )
 
         payload = {
-            "source": {
-                "uri": stream_path,
-                "type": "uri",
-            },
+            "source": source,
             "destination": {
                 "metadata": {
                     "type": "file",

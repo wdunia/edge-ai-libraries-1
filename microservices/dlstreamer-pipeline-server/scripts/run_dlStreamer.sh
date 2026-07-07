@@ -391,6 +391,11 @@ main() {
     container_model_path="$(host_to_container_model_path "$model_path")"
 
     local camera_device="${CAMERA_DEVICE:-/dev/video0}"
+    local camera_input_format="${CAMERA_INPUT_FORMAT:-mjpeg}"
+    local camera_width="${CAMERA_WIDTH:-1280}"
+    local camera_height="${CAMERA_HEIGHT:-720}"
+    local camera_framerate="${CAMERA_FRAMERATE:-30}"
+    local camera_bitrate="${CAMERA_BITRATE:-2000k}"
     local default_stream_url=""
 
     if [[ "$SOURCE_MODE" == "file" ]]; then
@@ -449,6 +454,8 @@ main() {
     if [[ "$SOURCE_MODE" == "rtsp" ]]; then
         echo "=== CREATING RTSP STREAM FROM CAMERA ==="
         echo "--> To attach to ffmpeg session type: tmux attach-session -t ffmpeg-rtsp"
+        echo "Using camera device: ${camera_device}"
+        echo "Using camera input: ${camera_input_format} ${camera_width}x${camera_height}@${camera_framerate}, bitrate ${camera_bitrate}"
 
         # in case of multiple cameras in system change path to camera f.ex /dev/videoX
         # User must be in 'video' group to access camera without sudo.
@@ -468,7 +475,7 @@ main() {
         start_tmux_session \
             "ffmpeg-rtsp" \
             "${PROJECT_ROOT}" \
-            "ffmpeg -f v4l2 -thread_queue_size 512 -use_wallclock_as_timestamps 1 -i ${camera_device} -an -vf 'fps=30,scale=1280:-2,format=yuv420p' -c:v libx264 -profile:v baseline -level:v 3.1 -preset ultrafast -tune zerolatency -g 30 -keyint_min 30 -bf 0 -x264-params 'scenecut=0:repeat-headers=1' -f rtsp -rtsp_transport tcp rtsp://127.0.0.1:8554/camera0"
+            "ffmpeg -f v4l2 -thread_queue_size 512 -use_wallclock_as_timestamps 1 -input_format ${camera_input_format} -video_size ${camera_width}x${camera_height} -framerate ${camera_framerate} -i ${camera_device} -an -c:v libx264 -profile:v baseline -level:v 3.1 -preset superfast -tune zerolatency -b:v ${camera_bitrate} -maxrate ${camera_bitrate} -bufsize 4000k -pix_fmt yuv420p -g ${camera_framerate} -keyint_min ${camera_framerate} -bf 0 -x264-params 'scenecut=0:repeat-headers=1' -f rtsp -rtsp_transport tcp rtsp://127.0.0.1:8554/camera0"
 
         ensure_tmux_session_running "ffmpeg-rtsp" 2
     else
