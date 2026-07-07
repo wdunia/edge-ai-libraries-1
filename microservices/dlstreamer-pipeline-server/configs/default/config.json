@@ -23,7 +23,7 @@
                 "name": "pallet_defect_detection_rtsp",
                 "source": "gstreamer",
                 "queue_maxsize": 50,
-                "pipeline": "{auto_source} ! queue ! decodebin ! videoconvert ! video/x-raw,format=RGB ! gvadetect name=detection model-instance-id=inst0 ! queue ! gvafpscounter ! gvametaconvert add-empty-results=true name=metaconvert ! gvametapublish name=destination ! appsink name=appsink",
+                "pipeline": "{auto_source} ! queue ! decodebin ! videoconvert ! video/x-raw,format=BGRx ! gvadetect name=detection model-instance-id=inst_rtsp0 ! queue ! gvafpscounter ! gvametaconvert add-empty-results=true name=metaconvert ! gvametapublish name=destination ! appsink name=appsink",
                 "parameters": {
                     "type": "object",
                     "properties": {
