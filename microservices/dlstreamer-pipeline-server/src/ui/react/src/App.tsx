@@ -1,4 +1,4 @@
-import { AppShell, Group, Text, Box, Grid, Paper, Button } from "@mantine/core";
+import { AppShell, Group, Text, Box, Grid, Paper, Button, Stack } from "@mantine/core";
 import { LeftPanel } from "./components/LeftPanel";
 import { accent, bg, type DeviceType } from "./styles/theme";
 import { CameraGrid } from "./components/CameraGrid";
@@ -172,7 +172,13 @@ function App() {
         },
       }}
     >
-      <AppShell.Main>
+      <AppShell.Main
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          minHeight: "calc(100vh - 2 * var(--mantine-spacing-md))",
+        }}
+      >
         {/* Header */}
         <Group justify="space-between" align="stretch" mb="md" wrap="nowrap">
           <Paper
@@ -354,33 +360,40 @@ function App() {
         </Group>
 
         {/* Body content */}
-        <Grid rowGap="md" columnGap="md">
+        <Stack gap="md" style={{ flex: 1, minHeight: 0 }}>
+          <Grid rowGap="md" columnGap="md" style={{ flex: 1, minHeight: 0 }}>
+            {/* Left Panel */}
+            <Grid.Col span={2} style={{ minHeight: 0 }}>
+              <Paper p="md" h="100%" radius="md" bg={bg.panel} style={{ overflow: "auto" }}>
+                <LeftPanel onAddPipeline={handleAddPipeline}
+                  onRemoveAllPipelines={handleRemoveAllPipelines} />
+              </Paper>
+            </Grid.Col>
 
-          {/* Left Panel */}
-          <Grid.Col span={2}>
-            <Paper p="md" h={480} radius="md" bg={bg.panel}>
-              <LeftPanel onAddPipeline={handleAddPipeline}
-                onRemoveAllPipelines={handleRemoveAllPipelines} />
-            </Paper>
-          </Grid.Col>
-
-          {/* Right Grid */}
-          <Grid.Col span={10}>
-            <Paper p="md" h={480} radius="md" bg={bg.panel}>
-              <CameraGrid layoutMode={layoutMode}
-                streams={streams}
-                onDeleteStream={handleDeleteStream}
-              />
-            </Paper>
-          </Grid.Col>
+            {/* Right Grid */}
+            <Grid.Col span={10} style={{ minHeight: 0 }}>
+              <Paper p="md" h="100%" radius="md" bg={bg.panel}>
+                <CameraGrid layoutMode={layoutMode}
+                  streams={streams}
+                  onDeleteStream={handleDeleteStream}
+                />
+              </Paper>
+            </Grid.Col>
+          </Grid>
 
           {/* Metrics Grid */}
-          <Grid.Col span={12}>
-            <Paper p="md" h={350} radius="md" bg={bg.panel}>
-              <MetricsPanel />
-            </Paper>
-          </Grid.Col>
-        </Grid>
+          <Paper
+            p="md"
+            h={350}
+            radius="md"
+            bg={bg.panel}
+            style={{
+              flexShrink: 0,
+            }}
+          >
+            <MetricsPanel />
+          </Paper>
+        </Stack>
       </AppShell.Main>
     </AppShell>
   );

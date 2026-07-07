@@ -18,6 +18,7 @@ COMPOSE_FILE="${DOCKER_DIR}/docker-compose-mediamtx.yml"
 
 DEFAULT_MODEL_PATH="${PROJECT_ROOT}/resources/models/geti/pallet_defect_detection/deployment/Detection/model/model.xml"
 DEFAULT_VIDEO_PATH="${PROJECT_ROOT}/resources/videos/warehouse.avi"
+DEFAULT_RTSP_SOURCE_URL="${DEFAULT_RTSP_SOURCE_URL:-rtsp://mediamtx-server:8554/camera0}"
 # Container resources prefix is extracted dynamically from the compose volume mount.
 # Can be overridden via CONTAINER_RESOURCES_PREFIX env var if needed.
 CONTAINER_RESOURCES_PREFIX="${CONTAINER_RESOURCES_PREFIX:-}"
@@ -70,7 +71,8 @@ Options:
                          Fallback order: --model-path -> MODEL_PATH env -> default path.
   --source-mode           Default source shown in the UI.
                          file (default): use resources/videos/warehouse.avi.
-                         rtsp: use local camera via ffmpeg -> rtsp://<host-ip>:8554/camera0.
+                         rtsp: use local camera via ffmpeg -> rtsp://127.0.0.1:8554/camera0.
+                               UI default URL points to ${DEFAULT_RTSP_SOURCE_URL} (container-visible).
   --help, -h             Show this help message.
 EOF
 }
@@ -253,6 +255,18 @@ start_tmux_session() {
     tmux new-session -d -s "$session_name" -c "$working_dir" "$command"
 }
 
+ensure_tmux_session_running() {
+    local session_name="$1"
+    local wait_seconds="${2:-2}"
+
+    sleep "$wait_seconds"
+    if ! tmux has-session -t "$session_name" 2>/dev/null; then
+        echo "ERROR: tmux session '${session_name}' exited unexpectedly." >&2
+        echo "Check logs with: tmux attach-session -t ${session_name}" >&2
+        return 1
+    fi
+}
+
 update_env_var() {
     local file_path="$1"
     local key="$2"
@@ -383,7 +397,8 @@ main() {
         require_file "${DEFAULT_VIDEO_PATH}"
         default_stream_url="file://$(host_to_container_model_path "${DEFAULT_VIDEO_PATH}")"
     else
-        default_stream_url="rtsp://${ip}:8554/camera0"
+        # Use a Docker-network-visible URL by default so pipeline containers can resolve it reliably.
+        default_stream_url="${DEFAULT_RTSP_SOURCE_URL}"
     fi
 
     echo "Using model_path (host): $model_path"
@@ -453,7 +468,9 @@ main() {
         start_tmux_session \
             "ffmpeg-rtsp" \
             "${PROJECT_ROOT}" \
-            "ffmpeg -f v4l2 -i ${camera_device} -c:v libx264 -preset ultrafast -tune zerolatency -f rtsp -rtsp_transport tcp -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5 rtsp://${ip}:8554/camera0"
+            "ffmpeg -f v4l2 -thread_queue_size 512 -i ${camera_device} -an -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -f rtsp -rtsp_transport tcp rtsp://127.0.0.1:8554/camera0"
+
+        ensure_tmux_session_running "ffmpeg-rtsp" 2
     else
         echo "=== SKIPPING RTSP CAMERA STREAM SETUP (source mode: file) ==="
     fi

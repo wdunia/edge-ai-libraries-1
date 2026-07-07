@@ -199,7 +199,7 @@ export function MetricsPanel() {
     ];
 
     return (
-        <Stack gap="xs">
+        <Stack gap="xs" style={{ height: "100%", minHeight: 0 }}>
             <SimpleGrid cols={4} spacing="md">
                 <MetricTile title="CPU" value={cpuValue} color={accent.blue} values={history.cpu} />
                 <MetricTile title="NPU" value={npuValue} color={accent.purple} values={history.npu} />
@@ -207,7 +207,10 @@ export function MetricsPanel() {
                 <MetricTile title="RAM" value={ramValue} color={accent.orange} values={history.ram} />
             </SimpleGrid>
 
-            <GpuMetricCard series={gpuSeries} />
+            <Box style={{ flex: 1, minHeight: 0 }}>
+                <GpuMetricCard series={gpuSeries} />
+            </Box>
         </Stack>
     );
 }
+

@@ -92,7 +92,8 @@
 
 .gpuCard {
     grid-column: 1 / -1;
-    height: 170px;
+    height: 100%;
+    min-height: 160px;
 }
 
 .gpuHeader {
