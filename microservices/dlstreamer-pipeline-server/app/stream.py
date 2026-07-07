@@ -29,11 +29,24 @@ class Stream:
 
     def add_stream(self, stream_path: str, model_path: str, target_device: str) -> str:
         hex_v = os.urandom(8).hex()
-        payload = {
-            "source": {
+        is_rtsp_source = urlparse(stream_path).scheme.lower() == "rtsp"
+        source = (
+            {
+                "type": "gst",
+                "element": (
+                    f"rtspsrc location=\"{stream_path}\" latency=200 protocols=tcp "
+                    "! rtph264depay ! h264parse"
+                ),
+            }
+            if is_rtsp_source
+            else {
                 "uri": stream_path,
                 "type": "uri",
-            },
+            }
+        )
+
+        payload = {
+            "source": source,
             "destination": {
                 "metadata": {
                     "type": "file",
@@ -53,13 +66,6 @@ class Stream:
             },
         }
 
-        if urlparse(stream_path).scheme.lower() == "rtsp":
-            payload["source"]["properties"] = {
-                "latency": 200,
-                "buffer-size": 1048576,
-                # GST_RTSP_LOWER_TRANS_TCP. The GStreamer property setter receives this value directly.
-                "protocols": 4,
-            }
 
         url = f"{self._base_url}/pipelines/user_defined_pipelines/pallet_defect_detection"
         logger.info(f"Creating pipeline: device={target_device}, source={stream_path}")
