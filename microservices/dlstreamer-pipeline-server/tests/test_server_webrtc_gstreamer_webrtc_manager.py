@@ -57,7 +57,6 @@ class TestGStreamerWebRTCManager:
         mock_caps = ['image/jpeg', 'width=1920', 'height=1080']
         result_jpeg = gstreamer_webrtc_manager._get_launch_string(mock_caps, "peer1",True)
         assert result_jpeg == ' appsrc name=webrtc_source format=GST_FORMAT_TIME  caps="image/jpeg,width=1920,height=1080"  ! jpegdec ! videoconvert ! gvawatermark  ! openh264enc complexity=low name=h264enc  ! video/x-h264,profile=baseline  ! whipclientsink signaller::whip-endpoint= http://10.10.10.10:8889/peer1/whip'
-    
     def test_remove_stream(self, gstreamer_webrtc_manager):
         mock_stream = MagicMock()
         gstreamer_webrtc_manager._streams = {'peer1': mock_stream}

@@ -17,6 +17,7 @@ UI_ENV_FILE="${UI_DIR}/.env"
 COMPOSE_FILE="${DOCKER_DIR}/docker-compose-mediamtx.yml"
 
 DEFAULT_MODEL_PATH="${PROJECT_ROOT}/resources/models/geti/pallet_defect_detection/deployment/Detection/model/model.xml"
+DEFAULT_VIDEO_PATH="${PROJECT_ROOT}/resources/videos/warehouse.avi"
 # Container resources prefix is extracted dynamically from the compose volume mount.
 # Can be overridden via CONTAINER_RESOURCES_PREFIX env var if needed.
 CONTAINER_RESOURCES_PREFIX="${CONTAINER_RESOURCES_PREFIX:-}"
@@ -352,8 +353,16 @@ main() {
     local container_model_path
     container_model_path="$(host_to_container_model_path "$model_path")"
 
+    local camera_device="${CAMERA_DEVICE:-/dev/video0}"
+    local default_stream_url="rtsp://${ip}:8554/camera0"
+
+    if [[ ! -r "$camera_device" ]] && [[ -f "${DEFAULT_VIDEO_PATH}" ]]; then
+        default_stream_url="file://$(host_to_container_model_path "${DEFAULT_VIDEO_PATH}")"
+    fi
+
     echo "Using model_path (host): $model_path"
     echo "Using model_path (container): $container_model_path"
+    echo "Using default stream URL: $default_stream_url"
 
     cp "${DOCKER_ENV_FILE}" "${TEMP_DIR}/docker.env.backup"
     cp "${UI_ENV_FILE}" "${TEMP_DIR}/ui.env.backup"
@@ -372,7 +381,7 @@ main() {
     update_env_var "${UI_ENV_FILE}" "VITE_PROMETHEUS_URL" "http://${ip}:9999"
     update_env_var "${UI_ENV_FILE}" "VITE_SYSTEM_INFO" "${SYSTEM_INFO_TEXT}"
     update_env_var "${UI_ENV_FILE}" "VITE_MODEL_PATH" "${container_model_path}"
-    update_env_var "${UI_ENV_FILE}" "VITE_DEFAULT_STREAM_URL" "rtsp://${ip}:8554/camera0"
+    update_env_var "${UI_ENV_FILE}" "VITE_DEFAULT_STREAM_URL" "${default_stream_url}"
 
     echo " === STARTING METRICS_SERVER CONTAINER ==="
     start_tmux_session \
@@ -405,7 +414,6 @@ main() {
     # Do NOT try to use VAAPI (HW) for encoding. RTSP Stream may be broken then. Also it uses GPU processing capacity
     # that should be reserved for DL-Streamer purposes only.
 
-    local camera_device="${CAMERA_DEVICE:-/dev/video0}"
 
     if [[ ! -r "$camera_device" ]]; then
         echo "WARNING: Cannot read ${camera_device}." >&2

@@ -224,11 +224,16 @@ class Endpoints:
             "POST on /pipelines/{name}/{version}".format(name=name, version=str(version)))
         if connexion.request.is_json:
             try:
+                request_json = connexion.request.get_json()
                 pipeline_id, err = Endpoints.pipeline_server_manager.start_instance(
-                    name, version, connexion.request.get_json())
-                full_json = connexion.request.get_json()
-                Endpoints.get_url[pipeline_id] = f"{full_json["destination"]["frame"]["peer-id"]}"
+                    name, version, request_json)
                 if pipeline_id is not None:
+                    frame_config = request_json.get("destination", {}).get("frame", {})
+                    peer_id = frame_config.get("peer-id")
+
+                    if frame_config.get("type") == "webrtc" and peer_id is not None:
+                        Endpoints.get_url[pipeline_id] = str(peer_id)
+
                     return pipeline_id
                 return (err, HTTPStatus.BAD_REQUEST)
             except Exception as error:
