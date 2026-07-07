@@ -15,7 +15,7 @@ browser_name = "Chrome"
 def get_ip():
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
         s.connect(("8.8.8.8", 80))
-        local_ip=s.getsocketname()[0]
+        local_ip=s.getsockname()[0]
         return local_ip
     
 
@@ -56,7 +56,7 @@ def set_window(driver, x: int, y: int, width: int, height: int):
 
 
 def open_browser(url: str):
-    if not isinstance(url, str) or not url.startswith("http://", "https://"):
+    if not isinstance(url, str) or not url.startswith(("http://", "https://")):
         raise ValueError("Wrong URL")
     
     try:
@@ -73,8 +73,8 @@ def main():
     my_prompt = ask_prompt()
     width, height = get_screen_resolution()
     local_ip = get_ip()
-    chatgpt = open_browser("https://chatgpt.com", browser_name)
-    localai = open_browser(f"http://{local_ip}:8101", browser_name)
+    chatgpt = open_browser("https://chatgpt.com")
+    localai = open_browser(f"http://{local_ip}:8101")
     half_width = width //2
     print(f"window: {browser_name}, x=0, y=0, width={half_width}, height={height}")
     set_window(driver=chatgpt, x=0, y=0, width=half_width, height=height)
