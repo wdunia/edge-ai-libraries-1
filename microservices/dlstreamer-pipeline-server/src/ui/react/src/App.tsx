@@ -360,19 +360,29 @@ function App() {
         </Group>
 
         {/* Body content */}
-        <Stack gap="md" style={{ flex: 1, minHeight: 0 }}>
-          <Grid rowGap="md" columnGap="md" style={{ flex: 1, minHeight: 0 }}>
+        <Stack gap="md" style={{ flex: "1 1 0", minHeight: 0 }}>
+          <Grid rowGap="md" columnGap="md" style={{ flex: "1 1 0", minHeight: 0, height: "100%" }}>
             {/* Left Panel */}
-            <Grid.Col span={2} style={{ minHeight: 0 }}>
-              <Paper p="md" h="100%" radius="md" bg={bg.panel} style={{ overflow: "auto" }}>
+            <Grid.Col span={2} style={{ minHeight: 0, display: "flex" }}>
+              <Paper
+                p="md"
+                radius="md"
+                bg={bg.panel}
+                style={{ flex: "1 1 0", minHeight: 0, overflow: "auto" }}
+              >
                 <LeftPanel onAddPipeline={handleAddPipeline}
                   onRemoveAllPipelines={handleRemoveAllPipelines} />
               </Paper>
             </Grid.Col>
 
             {/* Right Grid */}
-            <Grid.Col span={10} style={{ minHeight: 0 }}>
-              <Paper p="md" h="100%" radius="md" bg={bg.panel}>
+            <Grid.Col span={10} style={{ minHeight: 0, display: "flex" }}>
+              <Paper
+                p="md"
+                radius="md"
+                bg={bg.panel}
+                style={{ flex: "1 1 0", minHeight: 0 }}
+              >
                 <CameraGrid layoutMode={layoutMode}
                   streams={streams}
                   onDeleteStream={handleDeleteStream}
