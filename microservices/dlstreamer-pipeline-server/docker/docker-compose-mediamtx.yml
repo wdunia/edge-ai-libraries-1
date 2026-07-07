@@ -19,6 +19,8 @@ services:
     image: ${DLSTREAMER_PIPELINE_SERVER_IMAGE}
     hostname: dlstreamer-pipeline-server
     container_name: dlstreamer-pipeline-server
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     # read_only: true causes segfault in DL Streamer due to GStreamer needing writable dirs (dconf, XDG runtime).
     # Disabled until upstream image properly supports read-only root filesystem.
     # read_only: true
@@ -56,8 +58,8 @@ services:
       - RTSP_PORT=8554
       - ENABLE_WEBRTC=true
       - WEBRTC_SIGNALING_SERVER=http://mediamtx-server:${WHIP_SERVER_PORT}
-      - no_proxy=$no_proxy,${RTSP_CAMERA_IP},otel-collector,mediamtx-server
-      - NO_PROXY=$no_proxy,${RTSP_CAMERA_IP},otel-collector,mediamtx-server
+      - no_proxy=$no_proxy,${RTSP_CAMERA_IP},otel-collector,mediamtx-server,host.docker.internal
+      - NO_PROXY=$no_proxy,${RTSP_CAMERA_IP},otel-collector,mediamtx-server,host.docker.internal
       - http_proxy=$http_proxy
       - https_proxy=$https_proxy
       - GST_DEBUG=3

@@ -18,7 +18,7 @@ COMPOSE_FILE="${DOCKER_DIR}/docker-compose-mediamtx.yml"
 
 DEFAULT_MODEL_PATH="${PROJECT_ROOT}/resources/models/geti/pallet_defect_detection/deployment/Detection/model/model.xml"
 DEFAULT_VIDEO_PATH="${PROJECT_ROOT}/resources/videos/warehouse.avi"
-DEFAULT_RTSP_SOURCE_URL="${DEFAULT_RTSP_SOURCE_URL:-rtsp://mediamtx-server:8554/camera0}"
+DEFAULT_RTSP_SOURCE_URL="${DEFAULT_RTSP_SOURCE_URL:-rtsp://host.docker.internal:8554/camera0}"
 # Container resources prefix is extracted dynamically from the compose volume mount.
 # Can be overridden via CONTAINER_RESOURCES_PREFIX env var if needed.
 CONTAINER_RESOURCES_PREFIX="${CONTAINER_RESOURCES_PREFIX:-}"
@@ -397,7 +397,7 @@ main() {
         require_file "${DEFAULT_VIDEO_PATH}"
         default_stream_url="file://$(host_to_container_model_path "${DEFAULT_VIDEO_PATH}")"
     else
-        # Use a Docker-network-visible URL by default so pipeline containers can resolve it reliably.
+        # Use Docker's host gateway by default because ffmpeg publishes to the host-mapped MediaMTX port.
         default_stream_url="${DEFAULT_RTSP_SOURCE_URL}"
     fi
 
