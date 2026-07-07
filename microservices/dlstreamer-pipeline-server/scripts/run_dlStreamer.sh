@@ -25,6 +25,7 @@ SYSTEM_INFO_TEXT="CPU: Intel Core i7 265H | GPU: Intel Arc B350 | NPU: Intel Ai 
 MAX_WAIT_SECONDS="${MAX_WAIT_SECONDS:-1800}"
 FORCE_RESTART=false
 MODEL_PATH_OVERRIDE=""
+SOURCE_MODE="${DLSPS_SOURCE_MODE:-file}"
 
 TEMP_DIR="$(mktemp -d)"
 
@@ -61,12 +62,15 @@ require_file() {
 
 usage() {
     cat <<'EOF'
-Usage: ./run_dlStreamer.sh [--force-restart|-f] [--model-path|-m <path>] [--help]
+Usage: ./run_dlStreamer.sh [--force-restart|-f] [--model-path|-m <path>] [--source-mode file|rtsp] [--help]
 
 Options:
   --force-restart, -f    Stop existing related tmux sessions/containers before startup.
   --model-path, -m       Path to model.xml used for VITE_MODEL_PATH.
                          Fallback order: --model-path -> MODEL_PATH env -> default path.
+  --source-mode           Default source shown in the UI.
+                         file (default): use resources/videos/warehouse.avi.
+                         rtsp: use local camera via ffmpeg -> rtsp://<host-ip>:8554/camera0.
   --help, -h             Show this help message.
 EOF
 }
@@ -86,6 +90,15 @@ parse_args() {
                 fi
                 MODEL_PATH_OVERRIDE="$1"
                 ;;
+            --source-mode)
+                shift
+                if [[ $# -eq 0 ]]; then
+                    echo "Missing value for --source-mode" >&2
+                    usage >&2
+                    exit 1
+                fi
+                SOURCE_MODE="$1"
+                ;;
             --help|-h)
                 usage
                 exit 0
@@ -98,6 +111,16 @@ parse_args() {
         esac
         shift
     done
+
+    case "$SOURCE_MODE" in
+        file|rtsp)
+            ;;
+        *)
+            echo "Invalid --source-mode value: $SOURCE_MODE" >&2
+            usage >&2
+            exit 1
+            ;;
+    esac
 }
 
 resolve_model_path() {
@@ -354,14 +377,18 @@ main() {
     container_model_path="$(host_to_container_model_path "$model_path")"
 
     local camera_device="${CAMERA_DEVICE:-/dev/video0}"
-    local default_stream_url="rtsp://${ip}:8554/camera0"
+    local default_stream_url=""
 
-    if [[ ! -r "$camera_device" ]] && [[ -f "${DEFAULT_VIDEO_PATH}" ]]; then
+    if [[ "$SOURCE_MODE" == "file" ]]; then
+        require_file "${DEFAULT_VIDEO_PATH}"
         default_stream_url="file://$(host_to_container_model_path "${DEFAULT_VIDEO_PATH}")"
+    else
+        default_stream_url="rtsp://${ip}:8554/camera0"
     fi
 
     echo "Using model_path (host): $model_path"
     echo "Using model_path (container): $container_model_path"
+    echo "Using source mode: $SOURCE_MODE"
     echo "Using default stream URL: $default_stream_url"
 
     cp "${DOCKER_ENV_FILE}" "${TEMP_DIR}/docker.env.backup"
@@ -404,26 +431,31 @@ main() {
     echo "=== WAITING FOR MAIN PIPELINE SERVER ON :8080 ==="
     wait_for_http_200 "http://localhost:8080/pipelines/status" "${MAX_WAIT_SECONDS}" "pipeline server"
 
-    echo "=== CREATING RTSP STREAM FROM CAMERA ==="
-    echo "--> To attach to ffmpeg session type: tmux attach-session -t ffmpeg-rtsp"
+    if [[ "$SOURCE_MODE" == "rtsp" ]]; then
+        echo "=== CREATING RTSP STREAM FROM CAMERA ==="
+        echo "--> To attach to ffmpeg session type: tmux attach-session -t ffmpeg-rtsp"
 
-    # in case of multiple cameras in system change path to camera f.ex /dev/videoX
-    # User must be in 'video' group to access camera without sudo.
-    # Run install_dlStreamer.sh to configure this automatically.
-    #
-    # Do NOT try to use VAAPI (HW) for encoding. RTSP Stream may be broken then. Also it uses GPU processing capacity
-    # that should be reserved for DL-Streamer purposes only.
+        # in case of multiple cameras in system change path to camera f.ex /dev/videoX
+        # User must be in 'video' group to access camera without sudo.
+        # Run install_dlStreamer.sh to configure this automatically.
+        #
+        # Do NOT try to use VAAPI (HW) for encoding. RTSP Stream may be broken then. Also it uses GPU processing capacity
+        # that should be reserved for DL-Streamer purposes only.
 
 
-    if [[ ! -r "$camera_device" ]]; then
-        echo "WARNING: Cannot read ${camera_device}." >&2
-        echo "Make sure the device exists and your user is in the 'video' group." >&2
-        echo "Skipping RTSP camera stream setup." >&2
-    else
+        if [[ ! -r "$camera_device" ]]; then
+            echo "ERROR: Cannot read ${camera_device}." >&2
+            echo "Make sure the device exists and your user is in the 'video' group." >&2
+            echo "Use --source-mode file for the stable warehouse.avi demo source." >&2
+            exit 1
+        fi
+
         start_tmux_session \
             "ffmpeg-rtsp" \
             "${PROJECT_ROOT}" \
             "ffmpeg -f v4l2 -i ${camera_device} -c:v libx264 -preset ultrafast -tune zerolatency -f rtsp -rtsp_transport tcp -reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5 rtsp://${ip}:8554/camera0"
+    else
+        echo "=== SKIPPING RTSP CAMERA STREAM SETUP (source mode: file) ==="
     fi
 
     echo "=== WE ARE ALL SET! OPENING BROWSER ==="
