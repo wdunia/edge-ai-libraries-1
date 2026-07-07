@@ -1,8 +1,8 @@
 import logging
 import os
 import threading
-import time
 import urllib.parse
+from urllib.parse import urlparse
 
 import requests
 
@@ -52,6 +52,14 @@ class Stream:
                 }
             },
         }
+
+        if urlparse(stream_path).scheme.lower() == "rtsp":
+            payload["source"]["properties"] = {
+                "latency": 200,
+                "buffer-size": 1048576,
+                # GST_RTSP_LOWER_TRANS_TCP. The GStreamer property setter receives this value directly.
+                "protocols": 4,
+            }
 
         url = f"{self._base_url}/pipelines/user_defined_pipelines/pallet_defect_detection"
         logger.info(f"Creating pipeline: device={target_device}, source={stream_path}")

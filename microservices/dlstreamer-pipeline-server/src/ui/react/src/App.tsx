@@ -1,4 +1,4 @@
-import { AppShell, Group, Text, Box, Grid, Paper, Button, Stack } from "@mantine/core";
+import { AppShell, Group, Text, Box, Paper, Button } from "@mantine/core";
 import { LeftPanel } from "./components/LeftPanel";
 import { accent, bg, type DeviceType } from "./styles/theme";
 import { CameraGrid } from "./components/CameraGrid";
@@ -360,50 +360,43 @@ function App() {
         </Group>
 
         {/* Body content */}
-        <Stack gap="md" style={{ flex: "1 1 0", minHeight: 0 }}>
-          <Grid rowGap="md" columnGap="md" style={{ flex: "1 1 0", minHeight: 0, height: "100%" }}>
-            {/* Left Panel */}
-            <Grid.Col span={2} style={{ minHeight: 0, display: "flex" }}>
-              <Paper
-                p="md"
-                radius="md"
-                bg={bg.panel}
-                style={{ flex: "1 1 0", minHeight: 0, overflow: "auto" }}
-              >
-                <LeftPanel onAddPipeline={handleAddPipeline}
-                  onRemoveAllPipelines={handleRemoveAllPipelines} />
-              </Paper>
-            </Grid.Col>
-
-            {/* Right Grid */}
-            <Grid.Col span={10} style={{ minHeight: 0, display: "flex" }}>
-              <Paper
-                p="md"
-                radius="md"
-                bg={bg.panel}
-                style={{ flex: "1 1 0", minHeight: 0 }}
-              >
-                <CameraGrid layoutMode={layoutMode}
-                  streams={streams}
-                  onDeleteStream={handleDeleteStream}
-                />
-              </Paper>
-            </Grid.Col>
-          </Grid>
-
-          {/* Metrics Grid */}
-          <Paper
-            p="md"
-            h={350}
-            radius="md"
-            bg={bg.panel}
+        <Box
+          style={{
+            flex: "1 1 0",
+            minHeight: 0,
+            display: "grid",
+            gridTemplateRows: "minmax(0, 1fr) 350px",
+            gap: "var(--mantine-spacing-md)",
+          }}
+        >
+          <Box
             style={{
-              flexShrink: 0,
+              minHeight: 0,
+              display: "grid",
+              gridTemplateColumns: "minmax(220px, 2fr) minmax(0, 10fr)",
+              gap: "var(--mantine-spacing-md)",
             }}
           >
+            {/* Left Panel */}
+            <Paper p="md" radius="md" bg={bg.panel} style={{ minHeight: 0, overflow: "auto" }}>
+              <LeftPanel onAddPipeline={handleAddPipeline}
+                onRemoveAllPipelines={handleRemoveAllPipelines} />
+            </Paper>
+
+            {/* Right Grid */}
+            <Paper p="md" radius="md" bg={bg.panel} style={{ minHeight: 0, overflow: "hidden" }}>
+              <CameraGrid layoutMode={layoutMode}
+                streams={streams}
+                onDeleteStream={handleDeleteStream}
+              />
+            </Paper>
+          </Box>
+
+          {/* Metrics Grid */}
+          <Paper p="md" radius="md" bg={bg.panel} style={{ minHeight: 0 }}>
             <MetricsPanel />
           </Paper>
-        </Stack>
+        </Box>
       </AppShell.Main>
     </AppShell>
   );

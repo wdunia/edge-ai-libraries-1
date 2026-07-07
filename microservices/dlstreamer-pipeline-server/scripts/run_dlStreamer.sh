@@ -468,7 +468,7 @@ main() {
         start_tmux_session \
             "ffmpeg-rtsp" \
             "${PROJECT_ROOT}" \
-            "ffmpeg -f v4l2 -thread_queue_size 512 -i ${camera_device} -an -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -f rtsp -rtsp_transport tcp rtsp://127.0.0.1:8554/camera0"
+            "ffmpeg -f v4l2 -thread_queue_size 512 -use_wallclock_as_timestamps 1 -i ${camera_device} -an -vf 'fps=30,scale=1280:-2,format=yuv420p' -c:v libx264 -profile:v baseline -level:v 3.1 -preset ultrafast -tune zerolatency -g 30 -keyint_min 30 -bf 0 -x264-params 'scenecut=0:repeat-headers=1' -f rtsp -rtsp_transport tcp rtsp://127.0.0.1:8554/camera0"
 
         ensure_tmux_session_running "ffmpeg-rtsp" 2
     else
