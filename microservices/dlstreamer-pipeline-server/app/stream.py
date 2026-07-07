@@ -30,23 +30,17 @@ class Stream:
     def add_stream(self, stream_path: str, model_path: str, target_device: str) -> str:
         hex_v = os.urandom(8).hex()
         is_rtsp_source = urlparse(stream_path).scheme.lower() == "rtsp"
-        source = (
-            {
-                "type": "gst",
-                "element": (
-                    f"rtspsrc location=\"{stream_path}\" latency=200 protocols=tcp "
-                    "! rtph264depay ! h264parse"
-                ),
-            }
+        pipeline_version = (
+            "pallet_defect_detection_rtsp"
             if is_rtsp_source
-            else {
-                "uri": stream_path,
-                "type": "uri",
-            }
+            else "pallet_defect_detection"
         )
 
         payload = {
-            "source": source,
+            "source": {
+                "uri": stream_path,
+                "type": "uri",
+            },
             "destination": {
                 "metadata": {
                     "type": "file",
@@ -66,9 +60,11 @@ class Stream:
             },
         }
 
-
-        url = f"{self._base_url}/pipelines/user_defined_pipelines/pallet_defect_detection"
-        logger.info(f"Creating pipeline: device={target_device}, source={stream_path}")
+        url = f"{self._base_url}/pipelines/user_defined_pipelines/{pipeline_version}"
+        logger.info(
+            f"Creating pipeline: version={pipeline_version}, "
+            f"device={target_device}, source={stream_path}"
+        )
 
         response = requests.post(
             url, json=payload, headers={"Content-Type": "application/json"},
