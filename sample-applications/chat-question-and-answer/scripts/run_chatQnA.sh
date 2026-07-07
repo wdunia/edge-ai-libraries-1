@@ -18,6 +18,7 @@ FORCE_RESTART=false
 TARGET_DEVICE="${CHATQNA_TARGET_DEVICE:-${DEVICE:-}}"
 HF_TOKEN_OVERRIDE="${HUGGINGFACEHUB_API_TOKEN:-}"
 MODEL_DOWNLOAD_MODEL_PATH="${MODEL_DOWNLOAD_MODEL_PATH:-${HOME}/host_path}"
+MODEL_DOWNLOAD_IMAGE="${MODEL_DOWNLOAD_IMAGE:-intel/model-download:latest}"
 
 TEMP_DIR="$(mktemp -d)"
 RUNTIME_ENV_FILE="${TEMP_DIR}/chatqna.runtime.env"
@@ -50,6 +51,8 @@ Options:
 Environment overrides:
   MODEL_DOWNLOAD_MODEL_PATH  Host directory mounted into model-download service.
                              Default: $HOME/host_path
+  MODEL_DOWNLOAD_IMAGE       External model-download image to run without local build.
+                             Default: intel/model-download:latest
   CHATQNA_LOG_DIR            Directory for tmux session logs.
                              Default: <chat-question-and-answer>/logs
   MAX_WAIT_SECONDS           Health-check timeout in seconds. Default: 1800
@@ -234,6 +237,7 @@ write_runtime_env_file() {
         DEVICE \
         MODEL_DOWNLOAD_HOST \
         MODEL_DOWNLOAD_PORT \
+        MODEL_DOWNLOAD_IMAGE \
         ALLOWED_HOSTS \
         REGISTRY \
         TAG \
@@ -252,6 +256,63 @@ write_runtime_env_file() {
     done
 
     chmod 600 "${RUNTIME_ENV_FILE}"
+}
+
+write_model_download_start_script() {
+    local script_path="$1"
+    local runtime_env_file="$2"
+    local model_path="$3"
+    local quoted_runtime_env_file
+    local quoted_model_path
+
+    printf -v quoted_runtime_env_file '%q' "$runtime_env_file"
+    printf -v quoted_model_path '%q' "$model_path"
+
+    cat > "$script_path" <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+
+source ${quoted_runtime_env_file}
+
+image="\${MODEL_DOWNLOAD_IMAGE:-intel/model-download:latest}"
+model_path=${quoted_model_path}
+host_port="\${MODEL_DOWNLOAD_PORT:-8200}"
+
+echo "Using external model-download image: \${image}"
+echo "Using model-download model path: \${model_path}"
+
+docker rm -f model-download >/dev/null 2>&1 || true
+docker pull "\${image}"
+
+docker run --rm \
+    --name model-download \
+    -p "\${host_port}:8000" \
+    -v "\${model_path}:/opt/models" \
+    --group-add "\$(id -g)" \
+    -e no_proxy="\${no_proxy:-}" \
+    -e http_proxy="\${http_proxy:-}" \
+    -e https_proxy="\${https_proxy:-}" \
+    -e NO_PROXY="\${NO_PROXY:-}" \
+    -e HTTP_PROXY="\${HTTP_PROXY:-}" \
+    -e HTTPS_PROXY="\${HTTPS_PROXY:-}" \
+    -e HF_HUB_ENABLE_HF_TRANSFER=1 \
+    -e HF_TOKEN="\${HUGGINGFACEHUB_API_TOKEN:-}" \
+    -e HUGGINGFACEHUB_API_TOKEN="\${HUGGINGFACEHUB_API_TOKEN:-}" \
+    -e MAX_UPLOAD_SIZE_MB="\${MAX_UPLOAD_SIZE_MB:-500}" \
+    -e UPLOAD_CHUNK_SIZE_KB="\${UPLOAD_CHUNK_SIZE_KB:-8}" \
+    -e ENABLED_PLUGINS=all \
+    -e MODEL_PATH="\${model_path}" \
+    -e OVMS_RELEASE_TAG="\${OVMS_RELEASE_TAG:-v2025.4.1}" \
+    -e GETI_HOST="\${GETI_HOST:-}" \
+    -e GETI_TOKEN="\${GETI_TOKEN:-}" \
+    -e GETI_WORKSPACE_ID="\${GETI_WORKSPACE_ID:-}" \
+    -e GETI_SERVER_API_VERSION="\${GETI_SERVER_API_VERSION:-v1}" \
+    -e GETI_SERVER_SSL_VERIFY="\${GETI_SERVER_SSL_VERIFY:-False}" \
+    "\${image}" \
+    --plugins all
+EOF
+
+    chmod +x "$script_path"
 }
 
 update_env_var() {
@@ -446,6 +507,7 @@ configure_runtime_env() {
     export DEVICE="${TARGET_DEVICE}"
     export MODEL_DOWNLOAD_HOST="$ip"
     export MODEL_DOWNLOAD_PORT=8200
+    export MODEL_DOWNLOAD_IMAGE="${MODEL_DOWNLOAD_IMAGE}"
     export ALLOWED_HOSTS="*"
     export REGISTRY="intel/"
     export TAG=latest
@@ -533,10 +595,12 @@ main() {
     echo "Using model-download host path: ${MODEL_DOWNLOAD_MODEL_PATH}"
     echo "Writing tmux logs to: ${LOG_DIR}"
 
-    local model_download_model_path_quoted
     local runtime_env_file_quoted
-    printf -v model_download_model_path_quoted '%q' "${MODEL_DOWNLOAD_MODEL_PATH}"
+    local model_download_start_script="${TEMP_DIR}/start_model_download.sh"
+    local model_download_start_script_quoted
     printf -v runtime_env_file_quoted '%q' "${RUNTIME_ENV_FILE}"
+    printf -v model_download_start_script_quoted '%q' "${model_download_start_script}"
+    write_model_download_start_script "${model_download_start_script}" "${RUNTIME_ENV_FILE}" "${MODEL_DOWNLOAD_MODEL_PATH}"
 
     echo " === STARTING METRICS_SERVER CONTAINER ==="
 
@@ -550,8 +614,8 @@ echo "=== STARTING MODEL DOWNLOAD MICROSERVICE (REQUIRED TO DOWNLOAD TARGET_MODE
 echo "--> To attach to model download TMUX session type: tmux attach-session -t model_download"
     start_tmux_session_logged \
         "model_download" \
-        "${MODEL_DOWNLOAD_DIR}" \
-        "sg docker -c 'bash -lc \"source ${runtime_env_file_quoted}; source scripts/run_service.sh up --plugins all --model-path ${model_download_model_path_quoted}\"'" \
+        "${APP_ROOT}" \
+        "sg docker -c 'bash ${model_download_start_script_quoted}'" \
         "${LOG_DIR}/model_download.log"
 
     ensure_tmux_session_running "metrics-manager" 2
