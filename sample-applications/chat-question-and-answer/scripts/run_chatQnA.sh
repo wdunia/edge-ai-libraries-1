@@ -2,10 +2,6 @@
 
 set -euo pipefail
 
-if command -v tput >/dev/null 2>&1; then
-    tput clear || true
-fi
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 REPO_ROOT="$(cd "${APP_ROOT}/../.." && pwd)"
@@ -14,6 +10,7 @@ UI_DIR="${APP_ROOT}/ui/react"
 TOOLS_DIR="${APP_ROOT}/tools"
 COMPOSE_FILE="${APP_ROOT}/docker-compose.yaml"
 UI_ENV_FILE="${UI_DIR}/.env"
+LOG_DIR="${CHATQNA_LOG_DIR:-${APP_ROOT}/logs}"
 
 SYSTEM_INFO_TEXT="CPU: Intel Core i7 265H | GPU: Intel Arc B350 | NPU: Intel Ai Boost | RAM: 64GB"
 MAX_WAIT_SECONDS="${MAX_WAIT_SECONDS:-1800}"
@@ -23,6 +20,8 @@ HF_TOKEN_OVERRIDE="${HUGGINGFACEHUB_API_TOKEN:-}"
 MODEL_DOWNLOAD_MODEL_PATH="${MODEL_DOWNLOAD_MODEL_PATH:-${HOME}/host_path}"
 
 TEMP_DIR="$(mktemp -d)"
+RUNTIME_ENV_FILE="${TEMP_DIR}/chatqna.runtime.env"
+SESSION_STATUS_DIR="${TEMP_DIR}/session-status"
 
 cleanup() {
     local exit_code=$?
@@ -51,6 +50,8 @@ Options:
 Environment overrides:
   MODEL_DOWNLOAD_MODEL_PATH  Host directory mounted into model-download service.
                              Default: $HOME/host_path
+  CHATQNA_LOG_DIR            Directory for tmux session logs.
+                             Default: <chat-question-and-answer>/logs
   MAX_WAIT_SECONDS           Health-check timeout in seconds. Default: 1800
 EOF
 }
@@ -146,16 +147,111 @@ start_tmux_session() {
     tmux new-session -d -s "$session_name" -c "$working_dir" "$command"
 }
 
+start_tmux_session_logged() {
+    local session_name="$1"
+    local working_dir="$2"
+    local command="$3"
+    local log_file="$4"
+    local runner_file="${TEMP_DIR}/${session_name}.runner.sh"
+    local status_file="${SESSION_STATUS_DIR}/${session_name}.status"
+    local quoted_working_dir
+    local quoted_log_file
+    local quoted_status_file
+
+    if tmux has-session -t "$session_name" 2>/dev/null; then
+        echo "tmux session '$session_name' already exists. Close it first or attach to it:" >&2
+        echo "tmux attach-session -t $session_name" >&2
+        exit 1
+    fi
+
+    mkdir -p "$(dirname "$log_file")" "${SESSION_STATUS_DIR}"
+    rm -f "$status_file"
+
+    printf -v quoted_working_dir '%q' "$working_dir"
+    printf -v quoted_log_file '%q' "$log_file"
+    printf -v quoted_status_file '%q' "$status_file"
+
+    cat > "$runner_file" <<EOF
+#!/usr/bin/env bash
+set -o pipefail
+cd ${quoted_working_dir}
+{
+    echo "=== ${session_name} started at \$(date -Is) ==="
+    ${command}
+} 2>&1 | tee -a ${quoted_log_file}
+status=\${PIPESTATUS[0]}
+echo "\${status}" > ${quoted_status_file}
+echo "=== ${session_name} exited with status \${status} at \$(date -Is) ===" | tee -a ${quoted_log_file}
+if (( status != 0 )); then
+    echo "Command failed. Log file: ${log_file}" | tee -a ${quoted_log_file}
+    echo "Keeping this tmux session open for inspection. Press Ctrl-D to close it." | tee -a ${quoted_log_file}
+    exec bash
+fi
+exit "\${status}"
+EOF
+
+    chmod +x "$runner_file"
+    tmux new-session -d -s "$session_name" -c "$working_dir" "bash $(printf '%q' "$runner_file")"
+}
+
 ensure_tmux_session_running() {
     local session_name="$1"
     local wait_seconds="${2:-2}"
+    local status_file="${SESSION_STATUS_DIR}/${session_name}.status"
+    local log_file="${LOG_DIR}/${session_name}.log"
+    local status
 
     sleep "$wait_seconds"
+
+    if [[ -f "$status_file" ]]; then
+        status="$(cat "$status_file")"
+        if [[ "$status" != "0" ]]; then
+            echo "ERROR: tmux session '${session_name}' command failed with status ${status}." >&2
+            echo "Check log file: ${log_file}" >&2
+            echo "Or attach to the kept-open session: tmux attach-session -t ${session_name}" >&2
+            return 1
+        fi
+    fi
+
     if ! tmux has-session -t "$session_name" 2>/dev/null; then
         echo "ERROR: tmux session '${session_name}' exited unexpectedly." >&2
-        echo "Check logs with: tmux attach-session -t ${session_name}" >&2
+        echo "Check log file: ${log_file}" >&2
         return 1
     fi
+}
+
+write_runtime_env_file() {
+    local key
+    local value
+
+    : > "${RUNTIME_ENV_FILE}"
+
+    for key in \
+        HUGGINGFACEHUB_API_TOKEN \
+        LLM_MODEL \
+        EMBEDDING_MODEL_NAME \
+        RERANKER_MODEL \
+        DEVICE \
+        MODEL_DOWNLOAD_HOST \
+        MODEL_DOWNLOAD_PORT \
+        ALLOWED_HOSTS \
+        REGISTRY \
+        TAG \
+        APP_METRICS_URL \
+        HOST_IP \
+        GETI_SERVER_SSL_VERIFY; do
+        value="${!key-}"
+        printf 'export %s=%q\n' "$key" "$value" >> "${RUNTIME_ENV_FILE}"
+    done
+
+    for key in http_proxy https_proxy no_proxy HTTP_PROXY HTTPS_PROXY NO_PROXY; do
+        value="${!key-}"
+        if [[ -n "$value" ]]; then
+            printf 'export %s=%q\n' "$key" "$value" >> "${RUNTIME_ENV_FILE}"
+        fi
+    done
+
+    chmod 600 "${RUNTIME_ENV_FILE}"
 }
 
 update_env_var() {
@@ -396,6 +492,10 @@ install_dependencies() {
 main() {
     parse_args "$@"
 
+    if command -v tput >/dev/null 2>&1; then
+        tput clear || true
+    fi
+
     require_file "${COMPOSE_FILE}"
     require_file "${UI_ENV_FILE}"
 
@@ -420,7 +520,9 @@ main() {
     }
 
     configure_runtime_env "$ip"
+    write_runtime_env_file
     mkdir -p "${MODEL_DOWNLOAD_MODEL_PATH}"
+    mkdir -p "${LOG_DIR}"
 
     restart_existing_runtime_if_needed
 
@@ -429,23 +531,28 @@ main() {
     echo "Using target device: ${DEVICE}"
     echo "Using host IP: ${ip}"
     echo "Using model-download host path: ${MODEL_DOWNLOAD_MODEL_PATH}"
+    echo "Writing tmux logs to: ${LOG_DIR}"
 
     local model_download_model_path_quoted
+    local runtime_env_file_quoted
     printf -v model_download_model_path_quoted '%q' "${MODEL_DOWNLOAD_MODEL_PATH}"
+    printf -v runtime_env_file_quoted '%q' "${RUNTIME_ENV_FILE}"
 
     echo " === STARTING METRICS_SERVER CONTAINER ==="
 
-    start_tmux_session \
+    start_tmux_session_logged \
         "metrics-manager" \
         "${APP_ROOT}" \
-        "sg docker -c 'docker run --rm --privileged --name metrics-manager --device /dev/dri -p 9090:9090 -p 9273:9273 -v /sys:/sys:ro -v /run:/run:ro --pid host intel/metrics-manager:2026.1.0-20260508-weekly'"
+        "sg docker -c 'docker run --rm --privileged --name metrics-manager --device /dev/dri -p 9090:9090 -p 9273:9273 -v /sys:/sys:ro -v /run:/run:ro --pid host intel/metrics-manager:2026.1.0-20260508-weekly'" \
+        "${LOG_DIR}/metrics-manager.log"
 
 echo "=== STARTING MODEL DOWNLOAD MICROSERVICE (REQUIRED TO DOWNLOAD TARGET_MODEL) ==="
 echo "--> To attach to model download TMUX session type: tmux attach-session -t model_download"
-    start_tmux_session \
+    start_tmux_session_logged \
         "model_download" \
         "${MODEL_DOWNLOAD_DIR}" \
-        "sg docker -c 'bash -c \"source scripts/run_service.sh up --plugins all --model-path ${model_download_model_path_quoted}\"'"
+        "sg docker -c 'bash -lc \"source ${runtime_env_file_quoted}; source scripts/run_service.sh up --plugins all --model-path ${model_download_model_path_quoted}\"'" \
+        "${LOG_DIR}/model_download.log"
 
     ensure_tmux_session_running "metrics-manager" 2
     ensure_tmux_session_running "model_download" 2
@@ -473,10 +580,11 @@ echo "=== UPDATING REQUIRED ENVIRONMENT VARIABLES ==="
     update_env_var "${UI_ENV_FILE}" "VITE_SYSTEM_INFO" "${SYSTEM_INFO_TEXT}"
 
 echo "=== STARTING CHAT QNA SAMPLE APP IN THE BACKGROUND ==="
-    start_tmux_session \
+    start_tmux_session_logged \
         "chatqna" \
         "${APP_ROOT}" \
-        "bash -c 'source setup.sh llm=OVMS embed=OVMS; if [[ -f ovms/OpenVINO/gpt-oss-20b-int4-ov/chat_template.ninja ]]; then sed -i '\''s/{- \"<|start|>assistant\" }}/{- \"<|start|>assistant<|channel|>final<|message|>\" }}/g'\'' ovms/OpenVINO/gpt-oss-20b-int4-ov/chat_template.ninja; else echo \"WARNING: chat template not found, skipping tuning\" >&2; fi; sg docker -c \"docker compose up --build\"'"
+        "bash -lc 'source ${runtime_env_file_quoted}; source setup.sh llm=OVMS embed=OVMS; if [[ -f ovms/OpenVINO/gpt-oss-20b-int4-ov/chat_template.ninja ]]; then sed -i '\''s/{- \"<|start|>assistant\" }}/{- \"<|start|>assistant<|channel|>final<|message|>\" }}/g'\'' ovms/OpenVINO/gpt-oss-20b-int4-ov/chat_template.ninja; else echo \"WARNING: chat template not found, skipping tuning\" >&2; fi; sg docker -c \"docker compose up --build\"'" \
+        "${LOG_DIR}/chatqna.log"
 
     ensure_tmux_session_running "chatqna" 2
 
