@@ -15,7 +15,6 @@ from threading import Thread
 
 browser_name = "Chrome"
 CYAN = "\033[96m"
-YELLOW = "\033[93m"
 RESET = "\033[0m"
 
 def get_ip():
@@ -42,17 +41,9 @@ def print_example_questions():
     print("3. Explain the difference between TCP and UDP protocols. Use exactly 3 bullet points.")
     print("4. Solve step by step: A train travels 120 km in 1.5 hours. What is its average speed in m/s? Write in plain text.")
     print("5. A farmer needs to cross a river with a fox, a chicken, and a bag of grain. The boat fits only the farmer and one item. The fox eats the chicken if left alone, the chicken eats the grain if left alone. Provide the exact sequence of crossings to get everything safely across. Use bullet list.")
+    print("CTRL+C is disabled in this prompt window to prevent accidental app interruption.")
     print("Type 'exit' or 'quit' to close the prompt loop.")
     print()
-
-
-def print_interrupt_hint():
-    print()
-    print(f"{YELLOW}CTRL+C ignored in prompt window. Use 'exit' or 'quit' to close the app loop.{RESET}")
-
-
-def handle_sigint(signum, frame):
-    print_interrupt_hint()
 
 
 def insert_prompt_gpt(driver, prompt: str):
@@ -123,7 +114,7 @@ def main():
     print(f"Window: {browser_name}, x={half_width}, y=0, width={half_width}, height={height}")
     set_window(driver=localai, x=int(half_width)+1, y=0, width=half_width, height=height)
     time.sleep(5)
-    signal.signal(signal.SIGINT, handle_sigint)
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
 
     clear_terminal()
     print_example_questions()
