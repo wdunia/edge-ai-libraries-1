@@ -53,6 +53,8 @@ Environment overrides:
                              Default: $HOME/host_path
   MODEL_DOWNLOAD_IMAGE       External model-download image to run without local build.
                              Default: intel/model-download:latest
+  MODEL_DOWNLOAD_PULL_POLICY Pull policy for external model-download image.
+                             Values: if-missing (default), always, never
   CHATQNA_LOG_DIR            Directory for tmux session logs.
                              Default: <chat-question-and-answer>/logs
   MAX_WAIT_SECONDS           Health-check timeout in seconds. Default: 1800
@@ -298,14 +300,38 @@ set -euo pipefail
 source ${quoted_runtime_env_file}
 
 image="\${MODEL_DOWNLOAD_IMAGE:-intel/model-download:latest}"
+pull_policy="\${MODEL_DOWNLOAD_PULL_POLICY:-if-missing}"
 model_path=${quoted_model_path}
 host_port="\${MODEL_DOWNLOAD_PORT:-8200}"
 
 echo "Using external model-download image: \${image}"
+echo "Using model-download pull policy: \${pull_policy}"
 echo "Using model-download model path: \${model_path}"
 
 docker rm -f model-download >/dev/null 2>&1 || true
-docker pull "\${image}"
+
+case "\${pull_policy}" in
+    always)
+        docker pull "\${image}"
+        ;;
+    if-missing)
+        if ! docker image inspect "\${image}" >/dev/null 2>&1; then
+            docker pull "\${image}"
+        else
+            echo "Image already available locally, skipping pull."
+        fi
+        ;;
+    never)
+        if ! docker image inspect "\${image}" >/dev/null 2>&1; then
+            echo "MODEL_DOWNLOAD_PULL_POLICY=never but image not found locally: \${image}" >&2
+            exit 1
+        fi
+        ;;
+    *)
+        echo "Invalid MODEL_DOWNLOAD_PULL_POLICY: \${pull_policy}. Use: if-missing, always, never" >&2
+        exit 1
+        ;;
+esac
 
 docker run --rm \
     --name model-download \
@@ -370,8 +396,13 @@ wait_for_model_download_health() {
     local timeout_seconds="$2"
     local start_ts
     local response
+    local elapsed
+    local last_diag_ts
+    local container_status
+    local log_file="${LOG_DIR}/model_download.log"
 
     start_ts="$(date +%s)"
+    last_diag_ts=0
 
     while true; do
         response="$(curl -fsS "$url" 2>/dev/null || true)"
@@ -391,12 +422,96 @@ PY
             return 0
         fi
 
+        elapsed=$(( $(date +%s) - start_ts ))
+
+        if (( elapsed - last_diag_ts >= 10 )); then
+            container_status="$(run_docker_cmd "docker ps --filter name=^/model-download$ --format '{{.Status}}'")"
+            if [[ -z "$container_status" ]]; then
+                echo "model-download container is not running yet (image pull/start may still be in progress)."
+            else
+                echo "model-download container status: $container_status"
+            fi
+
+            if [[ -f "$log_file" ]]; then
+                echo "last model_download tmux log lines:"
+                tail -n 5 "$log_file" || true
+            fi
+
+            last_diag_ts=$elapsed
+        fi
+
         if (( $(date +%s) - start_ts >= timeout_seconds )); then
             echo "Timed out waiting for model-download health endpoint: $url" >&2
+            echo "Check tmux/session logs: ${log_file}" >&2
             return 1
         fi
 
         echo "waiting for model-download health..."
+        sleep 1
+    done
+}
+
+wait_for_metrics_manager_health() {
+    local url="$1"
+    local timeout_seconds="$2"
+    local start_ts
+    local response
+
+    start_ts="$(date +%s)"
+
+    while true; do
+        response="$(curl -fsS "$url" 2>/dev/null || true)"
+
+        if [[ -n "$response" ]] && python3 - "$response" <<'PY'
+import json
+import sys
+
+try:
+    data = json.loads(sys.argv[1])
+except Exception:
+    raise SystemExit(1)
+
+raise SystemExit(0 if data.get("status") == "healthy" else 1)
+PY
+        then
+            return 0
+        fi
+
+        if (( $(date +%s) - start_ts >= timeout_seconds )); then
+            echo "Timed out waiting for metrics-manager health endpoint: $url" >&2
+            return 1
+        fi
+
+        echo "waiting for metrics-manager health..."
+        sleep 1
+    done
+}
+
+wait_for_http_content() {
+    local url="$1"
+    local timeout_seconds="$2"
+    local label="$3"
+    local expected_substring="${4:-}"
+    local start_ts
+    local response
+
+    start_ts="$(date +%s)"
+
+    while true; do
+        response="$(curl -fsS "$url" 2>/dev/null || true)"
+
+        if [[ -n "$response" ]]; then
+            if [[ -z "$expected_substring" ]] || [[ "$response" == *"$expected_substring"* ]]; then
+                return 0
+            fi
+        fi
+
+        if (( $(date +%s) - start_ts >= timeout_seconds )); then
+            echo "Timed out waiting for ${label}: $url" >&2
+            return 1
+        fi
+
+        echo "waiting for ${label}..."
         sleep 1
     done
 }
@@ -688,6 +803,8 @@ echo "--> To attach to model download TMUX session type: tmux attach-session -t 
     ensure_tmux_session_running "model_download" 2
 
 echo "=== CONTAINERS STARTED IN THE BACKGROUND, WAITING FOR API HEALTHY MESSAGE ==="
+    wait_for_metrics_manager_health "http://localhost:9090/health" "${MAX_WAIT_SECONDS}"
+    wait_for_http_content "http://localhost:9273/metrics" "${MAX_WAIT_SECONDS}" "metrics-manager Prometheus exporter" "gpu_engine_usage_usage"
     wait_for_model_download_health "http://localhost:8200/health" "${MAX_WAIT_SECONDS}"
 
     cd "${APP_ROOT}"
