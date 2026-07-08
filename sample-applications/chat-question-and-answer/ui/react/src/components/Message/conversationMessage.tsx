@@ -16,6 +16,27 @@ export interface ConversationMessageProps {
   responseTimeMs?: number
 }
 
+function splitReasoningAndAnswer(message: string): { reasoning: string; answer: string; hasReasoning: boolean } {
+  const markerRegex = /(assistant\s*final|assistantfinal)\s*:?/i
+  const markerMatch = markerRegex.exec(message)
+
+  if (!markerMatch) {
+    return { reasoning: "", answer: message, hasReasoning: false }
+  }
+
+  const reasoningRaw = message.slice(0, markerMatch.index)
+  const answerRaw = message.slice(markerMatch.index + markerMatch[0].length)
+
+  const reasoning = reasoningRaw.replace(/^\s*analysis\s*:?\s*/i, "").trim()
+  const answer = answerRaw.trimStart()
+
+  return {
+    reasoning,
+    answer,
+    hasReasoning: reasoning.length > 0,
+  }
+}
+
 export function ConversationMessage({
   human,
   message,
@@ -28,6 +49,7 @@ export function ConversationMessage({
   }
 
   const normalizedMessage = message.replace(/\\n/g, "\n")
+  const { reasoning, answer, hasReasoning } = splitReasoningAndAnswer(normalizedMessage)
 
   return (
     <div className={`${style.messageRow} ${human ? style.user : style.ai}`}>
@@ -38,9 +60,20 @@ export function ConversationMessage({
       <div className={style.messageContent}>
         <div className={`${style.bubble} ${human ? style.userBubble : style.aiBubble}`}>
           <div className={style.markdownContent}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {normalizedMessage}
-            </ReactMarkdown>
+            {hasReasoning && !human ? (
+              <>
+                <div className={style.reasoningBlock}>
+                  <div className={style.reasoningLabel}>Reasoning</div>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{reasoning}</ReactMarkdown>
+                </div>
+
+                <div className={style.answerSpacer} />
+
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{answer}</ReactMarkdown>
+              </>
+            ) : (
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalizedMessage}</ReactMarkdown>
+            )}
 
             {showBlinkingIndicator && (
               <span
