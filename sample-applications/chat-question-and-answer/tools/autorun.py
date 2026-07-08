@@ -7,6 +7,8 @@ from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 from threading import Thread
 
@@ -32,7 +34,17 @@ def insert_prompt_gpt(driver, prompt: str):
     
     
 def insert_prompt_local(driver, prompt: str):
-    textbox = driver.find_element(By.CLASS_NAME, "mantime-Textarea-input")
+    # The local chatbot uses Mantine UI with CSS modules (hashed class names).
+    # Try matching the promptInput CSS-module class first, then fall back to textarea tag.
+    try:
+        textbox = WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "[class*='promptInput']"))
+        )
+    except Exception:
+        textbox = WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.TAG_NAME, "textarea"))
+        )
+    textbox.click()
     textbox.send_keys(prompt)
     textbox.send_keys(Keys.ENTER)
     time.sleep(999)
