@@ -14,6 +14,7 @@ UI_PACKAGE_JSON_FILE="${UI_DIR}/package.json"
 UI_CONFIG_FILE="${UI_DIR}/src/config.ts"
 UI_METRICS_PANEL_FILE="${UI_DIR}/src/components/Metrics/MetricsPanel.tsx"
 UI_DOCKERFILE_FILE="${UI_DIR}/Dockerfile"
+SETUP_SCRIPT_FILE="${APP_ROOT}/setup.sh"
 LOG_DIR="${CHATQNA_LOG_DIR:-${APP_ROOT}/logs}"
 
 SYSTEM_INFO_TEXT="CPU: Intel Core i7 265H | GPU: Intel Arc B350 | NPU: Intel Ai Boost | RAM: 64GB"
@@ -23,6 +24,8 @@ TARGET_DEVICE="${CHATQNA_TARGET_DEVICE:-${DEVICE:-}}"
 HF_TOKEN_OVERRIDE="${HUGGINGFACEHUB_API_TOKEN:-}"
 MODEL_DOWNLOAD_MODEL_PATH="${MODEL_DOWNLOAD_MODEL_PATH:-${HOME}/host_path}"
 MODEL_DOWNLOAD_IMAGE="${MODEL_DOWNLOAD_IMAGE:-intel/model-download:latest}"
+MODEL_DOWNLOAD_JOB_MAX_ATTEMPTS="${MODEL_DOWNLOAD_JOB_MAX_ATTEMPTS:-240}"
+MODEL_DOWNLOAD_STATUS_LOG_EVERY="${MODEL_DOWNLOAD_STATUS_LOG_EVERY:-10}"
 
 TEMP_DIR="$(mktemp -d)"
 RUNTIME_ENV_FILE="${TEMP_DIR}/chatqna.runtime.env"
@@ -51,6 +54,10 @@ cleanup() {
         cp "${TEMP_DIR}/ui.dockerfile.backup" "${UI_DOCKERFILE_FILE}"
     fi
 
+    if [[ -f "${TEMP_DIR}/setup.sh.backup" ]]; then
+        cp "${TEMP_DIR}/setup.sh.backup" "${SETUP_SCRIPT_FILE}"
+    fi
+
     rm -rf "${TEMP_DIR}"
     exit "${exit_code}"
 }
@@ -73,6 +80,12 @@ Environment overrides:
                              Default: $HOME/host_path
   MODEL_DOWNLOAD_IMAGE       External model-download image to run without local build.
                              Default: intel/model-download:latest
+  MODEL_DOWNLOAD_JOB_MAX_ATTEMPTS
+                             Max model-download job polling attempts for demo setup.sh patch.
+                             Default: 240 (attempts every 5s).
+  MODEL_DOWNLOAD_STATUS_LOG_EVERY
+                             Print model-download job status at least every N attempts.
+                             Default: 10.
   MODEL_DOWNLOAD_PULL_POLICY Pull policy for external model-download image.
                              Values: if-missing (default), always, never
   CHATQNA_LOG_DIR            Directory for tmux session logs.
@@ -188,6 +201,7 @@ apply_demo_ui_build_patches() {
     backup_file_if_needed "${UI_CONFIG_FILE}" "${TEMP_DIR}/ui.config.ts.backup"
     backup_file_if_needed "${UI_METRICS_PANEL_FILE}" "${TEMP_DIR}/ui.metrics-panel.tsx.backup"
     backup_file_if_needed "${UI_DOCKERFILE_FILE}" "${TEMP_DIR}/ui.dockerfile.backup"
+    backup_file_if_needed "${SETUP_SCRIPT_FILE}" "${TEMP_DIR}/setup.sh.backup"
 
     python3 - "${UI_PACKAGE_JSON_FILE}" <<'PY'
 import json
@@ -258,7 +272,53 @@ from pathlib import Path
 
 path = Path(sys.argv[1])
 content = path.read_text(encoding="utf-8")
-content = content.replace('RUN ["npm", "ci"]', 'RUN npm ci || npm install')
+content = content.replace('RUN ["npm", "ci"]', 'RUN npm ci || npm install --no-package-lock')
+path.write_text(content, encoding="utf-8")
+PY
+
+    python3 - "${SETUP_SCRIPT_FILE}" <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+content = path.read_text(encoding="utf-8")
+
+content = content.replace(
+    '    local MAX_ATTEMPTS=60\n',
+    '    local MAX_ATTEMPTS="${MODEL_DOWNLOAD_JOB_MAX_ATTEMPTS:-240}"\n',
+    1,
+)
+
+content = content.replace(
+    '    declare -A job_done\n    declare -A job_conversion_path\n',
+    '    declare -A job_done\n    declare -A job_conversion_path\n    declare -A job_last_status\n\n    local status_log_every="${MODEL_DOWNLOAD_STATUS_LOG_EVERY:-10}"\n',
+    1,
+)
+
+content = content.replace(
+    '            echo "Job $job_id → $status"\n',
+    '            if [[ "${job_last_status[$job_id]-}" != "$status" || $((attempt % status_log_every)) -eq 0 ]]; then\n                echo "Job $job_id → $status (attempt $attempt/$MAX_ATTEMPTS)"\n                job_last_status[$job_id]="$status"\n            fi\n',
+    1,
+)
+
+content = content.replace(
+    '                        download_ovms_model "$LLM_MODEL" "llm" "openvino"\n',
+    '                        download_ovms_model "$LLM_MODEL" "llm" "openvino" || return 1\n',
+    1,
+)
+
+content = content.replace(
+    '                        download_ovms_model "$EMBEDDING_MODEL_NAME" "embeddings" "openvino"\n',
+    '                        download_ovms_model "$EMBEDDING_MODEL_NAME" "embeddings" "openvino" || return 1\n',
+    1,
+)
+
+content = content.replace(
+    '        setup_inference "$LLM_SERVICE"\n        setup_embedding "$EMBED_SERVICE"\n',
+    '        setup_inference "$LLM_SERVICE" || return 1\n        setup_embedding "$EMBED_SERVICE" || return 1\n',
+    1,
+)
+
 path.write_text(content, encoding="utf-8")
 PY
 }
@@ -374,6 +434,8 @@ write_runtime_env_file() {
         MODEL_DOWNLOAD_HOST \
         MODEL_DOWNLOAD_PORT \
         MODEL_DOWNLOAD_IMAGE \
+        MODEL_DOWNLOAD_JOB_MAX_ATTEMPTS \
+        MODEL_DOWNLOAD_STATUS_LOG_EVERY \
         ALLOWED_HOSTS \
         REGISTRY \
         TAG \
@@ -757,6 +819,8 @@ configure_runtime_env() {
     export MODEL_DOWNLOAD_HOST="$ip"
     export MODEL_DOWNLOAD_PORT=8200
     export MODEL_DOWNLOAD_IMAGE="${MODEL_DOWNLOAD_IMAGE}"
+    export MODEL_DOWNLOAD_JOB_MAX_ATTEMPTS="${MODEL_DOWNLOAD_JOB_MAX_ATTEMPTS}"
+    export MODEL_DOWNLOAD_STATUS_LOG_EVERY="${MODEL_DOWNLOAD_STATUS_LOG_EVERY}"
     export ALLOWED_HOSTS="*"
     export REGISTRY="intel/"
     export TAG=latest
@@ -856,6 +920,7 @@ main() {
     require_file "${UI_CONFIG_FILE}"
     require_file "${UI_METRICS_PANEL_FILE}"
     require_file "${UI_DOCKERFILE_FILE}"
+    require_file "${SETUP_SCRIPT_FILE}"
 
     install_dependencies
 
