@@ -13,6 +13,8 @@ from webdriver_manager.chrome import ChromeDriverManager
 from threading import Thread
 
 browser_name = "Chrome"
+CYAN = "\033[96m"
+RESET = "\033[0m"
 
 def get_ip():
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -22,15 +24,29 @@ def get_ip():
     
 
 def ask_prompt():
-    prompt = input("Enter prompt for both chatbots: ")
+    print(f"{CYAN}Enter prompt for both chatbots:{RESET} ", end="")
+    prompt = input()
     return prompt
+
+
+def clear_terminal():
+    os.system("clear")
+
+
+def print_example_questions():
+    print("Example prompts:")
+    print("1. List the logical steps to determine if a number is prime. Be concise, max 5 steps.")
+    print("2. Write a Python function that reverses a string without using built-in reverse methods. Include one usage example.")
+    print("3. Explain the difference between TCP and UDP protocols. Use exactly 3 bullet points.")
+    print("4. Solve step by step: A train travels 120 km in 1.5 hours. What is its average speed in m/s?")
+    print("5. A farmer needs to cross a river with a fox, a chicken, and a bag of grain. The boat fits only the farmer and one item. The fox eats the chicken if left alone, the chicken eats the grain if left alone. Provide the exact sequence of crossings to get everything safely across.")
+    print()
 
 
 def insert_prompt_gpt(driver, prompt: str):
     textbox = driver.find_element(By.CLASS_NAME, "placeholder")
     textbox.send_keys(prompt)
     textbox.send_keys(Keys.ENTER)
-    time.sleep(999)
     
     
 def insert_prompt_local(driver, prompt: str):
@@ -47,7 +63,6 @@ def insert_prompt_local(driver, prompt: str):
     textbox.click()
     textbox.send_keys(prompt)
     textbox.send_keys(Keys.ENTER)
-    time.sleep(999)
     
     
 def get_screen_resolution():
@@ -82,7 +97,6 @@ def open_browser(url: str):
     
     
 def main():
-    my_prompt = ask_prompt()
     width, height = get_screen_resolution()
     local_ip = get_ip()
     chatgpt = open_browser("https://chatgpt.com")
@@ -93,10 +107,21 @@ def main():
     print(f"Window: {browser_name}, x={half_width}, y=0, width={half_width}, height={height}")
     set_window(driver=localai, x=int(half_width)+1, y=0, width=half_width, height=height)
     time.sleep(5)
-    Thread(target=insert_prompt_gpt, args=(chatgpt, my_prompt)).start()
-    Thread(target=insert_prompt_local, args=(localai, my_prompt)).start()
-    input("is ok?")
-    time.sleep(999)
+
+    clear_terminal()
+    print_example_questions()
+
+    while True:
+        my_prompt = ask_prompt().strip()
+        if not my_prompt:
+            continue
+
+        gpt_thread = Thread(target=insert_prompt_gpt, args=(chatgpt, my_prompt))
+        local_thread = Thread(target=insert_prompt_local, args=(localai, my_prompt))
+        gpt_thread.start()
+        local_thread.start()
+        gpt_thread.join()
+        local_thread.join()
     
     
 if __name__ == "__main__":
