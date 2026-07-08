@@ -14,6 +14,7 @@ from threading import Thread
 
 browser_name = "Chrome"
 CYAN = "\033[96m"
+YELLOW = "\033[93m"
 RESET = "\033[0m"
 
 def get_ip():
@@ -40,7 +41,13 @@ def print_example_questions():
     print("3. Explain the difference between TCP and UDP protocols. Use exactly 3 bullet points.")
     print("4. Solve step by step: A train travels 120 km in 1.5 hours. What is its average speed in m/s? Write in plain text.")
     print("5. A farmer needs to cross a river with a fox, a chicken, and a bag of grain. The boat fits only the farmer and one item. The fox eats the chicken if left alone, the chicken eats the grain if left alone. Provide the exact sequence of crossings to get everything safely across. Use bullet list.")
+    print("Type 'exit' or 'quit' to close the prompt loop.")
     print()
+
+
+def print_interrupt_hint():
+    print()
+    print(f"{YELLOW}CTRL+C ignored in prompt window. Use 'exit' or 'quit' to close the app loop.{RESET}")
 
 
 def insert_prompt_gpt(driver, prompt: str):
@@ -111,17 +118,35 @@ def main():
     clear_terminal()
     print_example_questions()
 
-    while True:
-        my_prompt = ask_prompt().strip()
-        if not my_prompt:
-            continue
+    try:
+        while True:
+            try:
+                my_prompt = ask_prompt().strip()
+            except KeyboardInterrupt:
+                print_interrupt_hint()
+                continue
 
-        gpt_thread = Thread(target=insert_prompt_gpt, args=(chatgpt, my_prompt))
-        local_thread = Thread(target=insert_prompt_local, args=(localai, my_prompt))
-        gpt_thread.start()
-        local_thread.start()
-        gpt_thread.join()
-        local_thread.join()
+            if not my_prompt:
+                continue
+
+            if my_prompt.lower() in {"exit", "quit"}:
+                break
+
+            try:
+                gpt_thread = Thread(target=insert_prompt_gpt, args=(chatgpt, my_prompt))
+                local_thread = Thread(target=insert_prompt_local, args=(localai, my_prompt))
+                gpt_thread.start()
+                local_thread.start()
+                gpt_thread.join()
+                local_thread.join()
+            except KeyboardInterrupt:
+                print_interrupt_hint()
+                continue
+    finally:
+        if chatgpt:
+            chatgpt.quit()
+        if localai:
+            localai.quit()
     
     
 if __name__ == "__main__":
