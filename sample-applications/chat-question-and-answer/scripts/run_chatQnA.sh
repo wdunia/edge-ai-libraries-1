@@ -10,6 +10,10 @@ UI_DIR="${APP_ROOT}/ui/react"
 TOOLS_DIR="${APP_ROOT}/tools"
 COMPOSE_FILE="${APP_ROOT}/docker-compose.yaml"
 UI_ENV_FILE="${UI_DIR}/.env"
+UI_PACKAGE_JSON_FILE="${UI_DIR}/package.json"
+UI_CONFIG_FILE="${UI_DIR}/src/config.ts"
+UI_METRICS_PANEL_FILE="${UI_DIR}/src/components/Metrics/MetricsPanel.tsx"
+UI_DOCKERFILE_FILE="${UI_DIR}/Dockerfile"
 LOG_DIR="${CHATQNA_LOG_DIR:-${APP_ROOT}/logs}"
 
 SYSTEM_INFO_TEXT="CPU: Intel Core i7 265H | GPU: Intel Arc B350 | NPU: Intel Ai Boost | RAM: 64GB"
@@ -29,6 +33,22 @@ cleanup() {
 
     if [[ -f "${TEMP_DIR}/ui.env.backup" ]]; then
         cp "${TEMP_DIR}/ui.env.backup" "${UI_ENV_FILE}"
+    fi
+
+    if [[ -f "${TEMP_DIR}/ui.package.json.backup" ]]; then
+        cp "${TEMP_DIR}/ui.package.json.backup" "${UI_PACKAGE_JSON_FILE}"
+    fi
+
+    if [[ -f "${TEMP_DIR}/ui.config.ts.backup" ]]; then
+        cp "${TEMP_DIR}/ui.config.ts.backup" "${UI_CONFIG_FILE}"
+    fi
+
+    if [[ -f "${TEMP_DIR}/ui.metrics-panel.tsx.backup" ]]; then
+        cp "${TEMP_DIR}/ui.metrics-panel.tsx.backup" "${UI_METRICS_PANEL_FILE}"
+    fi
+
+    if [[ -f "${TEMP_DIR}/ui.dockerfile.backup" ]]; then
+        cp "${TEMP_DIR}/ui.dockerfile.backup" "${UI_DOCKERFILE_FILE}"
     fi
 
     rm -rf "${TEMP_DIR}"
@@ -150,6 +170,97 @@ install_gpg_keyring() {
 
     sudo gpg --dearmor --yes -o "$output_path" "$temp_key_file"
     sudo chmod 644 "$output_path"
+}
+
+backup_file_if_needed() {
+    local src="$1"
+    local dst="$2"
+
+    if [[ ! -f "$dst" ]]; then
+        cp "$src" "$dst"
+    fi
+}
+
+apply_demo_ui_build_patches() {
+    echo "=== APPLYING DEMO-ONLY UI BUILD PATCHES (TEMPORARY) ==="
+
+    backup_file_if_needed "${UI_PACKAGE_JSON_FILE}" "${TEMP_DIR}/ui.package.json.backup"
+    backup_file_if_needed "${UI_CONFIG_FILE}" "${TEMP_DIR}/ui.config.ts.backup"
+    backup_file_if_needed "${UI_METRICS_PANEL_FILE}" "${TEMP_DIR}/ui.metrics-panel.tsx.backup"
+    backup_file_if_needed "${UI_DOCKERFILE_FILE}" "${TEMP_DIR}/ui.dockerfile.backup"
+
+    python3 - "${UI_PACKAGE_JSON_FILE}" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = json.loads(path.read_text(encoding="utf-8"))
+deps = data.setdefault("dependencies", {})
+
+required = {
+    "chart.js": "^4.5.1",
+    "react-chartjs-2": "^5.3.0",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+}
+
+changed = False
+for name, version in required.items():
+    if deps.get(name) != version:
+        deps[name] = version
+        changed = True
+
+if changed:
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+PY
+
+    python3 - "${UI_CONFIG_FILE}" <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+content = path.read_text(encoding="utf-8")
+
+metrics_block = "export const METRICS_URL: string =\n  import.meta.env.VITE_BACKEND_SERVICE_ENDPOINT + '/metrics';\n"
+system_info_block = "export const SYSTEM_INFO: string =\n  import.meta.env.VITE_SYSTEM_INFO || '';\n"
+
+if "export const METRICS_URL" not in content:
+    marker = "export const MODEL_URL: string ="
+    if marker in content:
+        content = content.replace(marker, metrics_block + marker, 1)
+
+if "export const SYSTEM_INFO" not in content:
+    content = content + "\n" + system_info_block
+
+path.write_text(content, encoding="utf-8")
+PY
+
+    python3 - "${UI_METRICS_PANEL_FILE}" <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+content = path.read_text(encoding="utf-8")
+
+old = '  const value = points.at(-1)?.[key]\n'
+new = '  const lastPoint = points.length > 0 ? points[points.length - 1] : undefined\n  const value = lastPoint?.[key]\n'
+
+if old in content:
+    content = content.replace(old, new, 1)
+
+path.write_text(content, encoding="utf-8")
+PY
+
+    python3 - "${UI_DOCKERFILE_FILE}" <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+content = path.read_text(encoding="utf-8")
+content = content.replace('RUN ["npm", "ci"]', 'RUN npm ci || npm install')
+path.write_text(content, encoding="utf-8")
+PY
 }
 
 run_docker_cmd() {
@@ -741,6 +852,10 @@ main() {
 
     require_file "${COMPOSE_FILE}"
     require_file "${UI_ENV_FILE}"
+    require_file "${UI_PACKAGE_JSON_FILE}"
+    require_file "${UI_CONFIG_FILE}"
+    require_file "${UI_METRICS_PANEL_FILE}"
+    require_file "${UI_DOCKERFILE_FILE}"
 
     install_dependencies
 
@@ -764,6 +879,7 @@ main() {
 
     configure_runtime_env "$ip"
     write_runtime_env_file
+    apply_demo_ui_build_patches
     mkdir -p "${MODEL_DOWNLOAD_MODEL_PATH}"
     mkdir -p "${LOG_DIR}"
 

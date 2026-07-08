@@ -15,8 +15,7 @@ const latestValue = (
   points: MetricsPoint[],
   key: "cpu" | "npu" | "ram"
 ) => {
-  const lastPoint = points.length > 0 ? points[points.length - 1] : undefined
-  const value = lastPoint?.[key]
+  const value = points.at(-1)?.[key]
   return typeof value === "number" ? `${value.toFixed(1)}%` : "N/A"
 }
 
