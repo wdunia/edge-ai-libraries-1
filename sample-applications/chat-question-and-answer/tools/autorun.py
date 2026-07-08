@@ -1,4 +1,5 @@
 import os
+import signal
 import time
 import socket
 from screeninfo import get_monitors
@@ -50,6 +51,10 @@ def print_interrupt_hint():
     print(f"{YELLOW}CTRL+C ignored in prompt window. Use 'exit' or 'quit' to close the app loop.{RESET}")
 
 
+def handle_sigint(signum, frame):
+    print_interrupt_hint()
+
+
 def insert_prompt_gpt(driver, prompt: str):
     textbox = driver.find_element(By.CLASS_NAME, "placeholder")
     textbox.send_keys(prompt)
@@ -93,7 +98,9 @@ def open_browser(url: str):
     if not isinstance(url, str) or not url.startswith(("http://", "https://")):
         raise ValueError("Wrong URL")
     
+    previous_sigint_handler = signal.getsignal(signal.SIGINT)
     try:
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
         os.environ["TMPDIR"] = "/tmp"
         driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
         driver.get(url)
@@ -101,6 +108,8 @@ def open_browser(url: str):
     except WebDriverException as e:
         print(e)
         return False
+    finally:
+        signal.signal(signal.SIGINT, previous_sigint_handler)
     
     
 def main():
@@ -114,34 +123,26 @@ def main():
     print(f"Window: {browser_name}, x={half_width}, y=0, width={half_width}, height={height}")
     set_window(driver=localai, x=int(half_width)+1, y=0, width=half_width, height=height)
     time.sleep(5)
+    signal.signal(signal.SIGINT, handle_sigint)
 
     clear_terminal()
     print_example_questions()
 
     try:
         while True:
-            try:
-                my_prompt = ask_prompt().strip()
-            except KeyboardInterrupt:
-                print_interrupt_hint()
-                continue
-
+            my_prompt = ask_prompt().strip()
             if not my_prompt:
                 continue
 
             if my_prompt.lower() in {"exit", "quit"}:
                 break
 
-            try:
-                gpt_thread = Thread(target=insert_prompt_gpt, args=(chatgpt, my_prompt))
-                local_thread = Thread(target=insert_prompt_local, args=(localai, my_prompt))
-                gpt_thread.start()
-                local_thread.start()
-                gpt_thread.join()
-                local_thread.join()
-            except KeyboardInterrupt:
-                print_interrupt_hint()
-                continue
+            gpt_thread = Thread(target=insert_prompt_gpt, args=(chatgpt, my_prompt))
+            local_thread = Thread(target=insert_prompt_local, args=(localai, my_prompt))
+            gpt_thread.start()
+            local_thread.start()
+            gpt_thread.join()
+            local_thread.join()
     finally:
         if chatgpt:
             chatgpt.quit()
