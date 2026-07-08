@@ -127,6 +127,29 @@ require_file() {
     }
 }
 
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+install_gpg_keyring() {
+    local url="$1"
+    local output_path="$2"
+    local temp_key_file="${TEMP_DIR}/$(basename "$output_path").asc"
+
+    echo "Fetching GPG key: ${url}"
+    curl -fsSL --retry 5 --retry-delay 2 --retry-connrefused "$url" -o "$temp_key_file"
+
+    if ! grep -q "BEGIN PGP PUBLIC KEY BLOCK" "$temp_key_file"; then
+        echo "Downloaded data from ${url} is not a valid ASCII-armored OpenPGP key." >&2
+        echo "First lines of the response:" >&2
+        head -n 5 "$temp_key_file" >&2 || true
+        return 1
+    fi
+
+    sudo gpg --dearmor --yes -o "$output_path" "$temp_key_file"
+    sudo chmod 644 "$output_path"
+}
+
 run_docker_cmd() {
     sg docker -c "$1"
 }
@@ -517,38 +540,81 @@ configure_runtime_env() {
 }
 
 install_dependencies() {
-    echo "=== ADD CHROME GPG KEY ==="
-    wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+    local need_apt_update=false
+    local need_chrome_install=false
+    local need_docker_install=false
+    local need_tmux_install=false
+    local need_base_packages_install=false
 
-    echo "=== UPDATE SYSTEM ==="
-    sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list'
-    sudo apt update && sudo apt upgrade -y
-
-    echo "=== INSTALL DEPENDENCIES ==="
-    sudo apt install -y ca-certificates curl gnupg git jq yq intel-gpu-tools python3-poetry google-chrome-stable python3-venv python3-pip
-
-    echo "=== INSTALL DOCKER ==="
-    sudo install -m 0755 -d /etc/apt/keyrings
-
-    if [[ ! -f /etc/apt/keyrings/docker.gpg ]]; then
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
-        sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    if command_exists google-chrome || command_exists google-chrome-stable; then
+        echo "=== GOOGLE CHROME ALREADY INSTALLED: SKIPPING INSTALL ==="
+    else
+        need_chrome_install=true
+        need_base_packages_install=true
+        echo "=== CONFIGURING GOOGLE CHROME REPOSITORY ==="
+        sudo install -m 0755 -d /etc/apt/keyrings
+        install_gpg_keyring "https://dl.google.com/linux/linux_signing_key.pub" "/etc/apt/keyrings/google-chrome.gpg"
+        sudo tee /etc/apt/sources.list.d/google-chrome.list > /dev/null <<'EOF'
+deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main
+EOF
+        need_apt_update=true
     fi
 
-    echo \
-    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-    https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-    sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    if command_exists docker; then
+        echo "=== DOCKER ALREADY INSTALLED: SKIPPING INSTALL ==="
+    else
+        need_docker_install=true
+        need_base_packages_install=true
+        echo "=== CONFIGURING DOCKER REPOSITORY ==="
+        sudo install -m 0755 -d /etc/apt/keyrings
+        install_gpg_keyring "https://download.docker.com/linux/ubuntu/gpg" "/etc/apt/keyrings/docker.gpg"
+        echo \
+        "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+        https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+        sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+        need_apt_update=true
+    fi
 
-    sudo apt update
-    sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    if command_exists tmux; then
+        echo "=== TMUX ALREADY INSTALLED: SKIPPING INSTALL ==="
+    else
+        need_tmux_install=true
+        need_base_packages_install=true
+    fi
 
-    sudo usermod -aG docker "$USER"
-    sudo chown root:docker /var/run/docker.sock
-    sudo chmod 660 /var/run/docker.sock
+    if ! command_exists curl || ! command_exists gpg || ! command_exists git || ! command_exists jq || ! command_exists yq || ! command_exists python3 || ! command_exists pip3; then
+        need_base_packages_install=true
+    fi
 
-    echo "=== INSTALL TMUX ==="
-    sudo apt install -y tmux
+    if [[ "$need_apt_update" == "true" ]]; then
+        echo "=== UPDATING PACKAGE INDEX ==="
+        sudo apt update
+    fi
+
+    if [[ "$need_base_packages_install" == "true" ]]; then
+        echo "=== INSTALLING BASE DEPENDENCIES ==="
+        sudo apt install -y ca-certificates curl gnupg git jq yq intel-gpu-tools python3-poetry python3-venv python3-pip
+    else
+        echo "=== BASE DEPENDENCIES ALREADY AVAILABLE: SKIPPING INSTALL ==="
+    fi
+
+    if [[ "$need_chrome_install" == "true" ]]; then
+        echo "=== INSTALLING GOOGLE CHROME ==="
+        sudo apt install -y google-chrome-stable
+    fi
+
+    if [[ "$need_docker_install" == "true" ]]; then
+        echo "=== INSTALLING DOCKER ==="
+        sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+        sudo usermod -aG docker "$USER"
+        sudo chown root:docker /var/run/docker.sock
+        sudo chmod 660 /var/run/docker.sock
+    fi
+
+    if [[ "$need_tmux_install" == "true" ]]; then
+        echo "=== INSTALLING TMUX ==="
+        sudo apt install -y tmux
+    fi
 }
 
 main() {
