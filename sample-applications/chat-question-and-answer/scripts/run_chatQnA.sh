@@ -14,6 +14,7 @@ UI_PACKAGE_JSON_FILE="${UI_DIR}/package.json"
 UI_CONFIG_FILE="${UI_DIR}/src/config.ts"
 UI_METRICS_PANEL_FILE="${UI_DIR}/src/components/Metrics/MetricsPanel.tsx"
 UI_DOCKERFILE_FILE="${UI_DIR}/Dockerfile"
+APP_DOCKERFILE_FILE="${APP_ROOT}/Dockerfile"
 SETUP_SCRIPT_FILE="${APP_ROOT}/setup.sh"
 LOG_DIR="${CHATQNA_LOG_DIR:-${APP_ROOT}/logs}"
 
@@ -52,6 +53,10 @@ cleanup() {
 
     if [[ -f "${TEMP_DIR}/ui.dockerfile.backup" ]]; then
         cp "${TEMP_DIR}/ui.dockerfile.backup" "${UI_DOCKERFILE_FILE}"
+    fi
+
+    if [[ -f "${TEMP_DIR}/app.dockerfile.backup" ]]; then
+        cp "${TEMP_DIR}/app.dockerfile.backup" "${APP_DOCKERFILE_FILE}"
     fi
 
     if [[ -f "${TEMP_DIR}/setup.sh.backup" ]]; then
@@ -201,6 +206,7 @@ apply_demo_ui_build_patches() {
     backup_file_if_needed "${UI_CONFIG_FILE}" "${TEMP_DIR}/ui.config.ts.backup"
     backup_file_if_needed "${UI_METRICS_PANEL_FILE}" "${TEMP_DIR}/ui.metrics-panel.tsx.backup"
     backup_file_if_needed "${UI_DOCKERFILE_FILE}" "${TEMP_DIR}/ui.dockerfile.backup"
+    backup_file_if_needed "${APP_DOCKERFILE_FILE}" "${TEMP_DIR}/app.dockerfile.backup"
     backup_file_if_needed "${SETUP_SCRIPT_FILE}" "${TEMP_DIR}/setup.sh.backup"
 
     python3 - "${UI_PACKAGE_JSON_FILE}" <<'PY'
@@ -273,6 +279,19 @@ from pathlib import Path
 path = Path(sys.argv[1])
 content = path.read_text(encoding="utf-8")
 content = content.replace('RUN ["npm", "ci"]', 'RUN npm ci || npm install --no-package-lock')
+path.write_text(content, encoding="utf-8")
+PY
+
+    python3 - "${APP_DOCKERFILE_FILE}" <<'PY'
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+content = path.read_text(encoding="utf-8")
+content = content.replace(
+    'RUN poetry config virtualenvs.create false && \\\n    poetry install --only main --no-root && \\\n    rm -rf ~/.cache',
+    'RUN poetry config virtualenvs.create false && \\\n    poetry lock && \\\n    poetry install --only main --no-root && \\\n    rm -rf ~/.cache',
+)
 path.write_text(content, encoding="utf-8")
 PY
 
@@ -920,6 +939,7 @@ main() {
     require_file "${UI_CONFIG_FILE}"
     require_file "${UI_METRICS_PANEL_FILE}"
     require_file "${UI_DOCKERFILE_FILE}"
+    require_file "${APP_DOCKERFILE_FILE}"
     require_file "${SETUP_SCRIPT_FILE}"
 
     install_dependencies
