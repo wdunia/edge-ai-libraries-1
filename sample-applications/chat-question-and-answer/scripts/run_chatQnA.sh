@@ -25,6 +25,7 @@ TARGET_DEVICE="${CHATQNA_TARGET_DEVICE:-${DEVICE:-}}"
 HF_TOKEN_OVERRIDE="${HUGGINGFACEHUB_API_TOKEN:-}"
 MODEL_DOWNLOAD_MODEL_PATH="${MODEL_DOWNLOAD_MODEL_PATH:-${HOME}/host_path}"
 MODEL_DOWNLOAD_IMAGE="${MODEL_DOWNLOAD_IMAGE:-intel/model-download:latest}"
+MODEL_DOWNLOAD_PLUGINS="${MODEL_DOWNLOAD_PLUGINS:-openvino}"
 MODEL_DOWNLOAD_JOB_MAX_ATTEMPTS="${MODEL_DOWNLOAD_JOB_MAX_ATTEMPTS:-240}"
 MODEL_DOWNLOAD_STATUS_LOG_EVERY="${MODEL_DOWNLOAD_STATUS_LOG_EVERY:-10}"
 
@@ -85,6 +86,8 @@ Environment overrides:
                              Default: $HOME/host_path
   MODEL_DOWNLOAD_IMAGE       External model-download image to run without local build.
                              Default: intel/model-download:latest
+  MODEL_DOWNLOAD_PLUGINS     Comma-separated plugin list passed to model-download.
+                             Default: openvino
   MODEL_DOWNLOAD_JOB_MAX_ATTEMPTS
                              Max model-download job polling attempts for demo setup.sh patch.
                              Default: 240 (attempts every 5s).
@@ -309,6 +312,12 @@ content = content.replace(
 )
 
 content = content.replace(
+    '    echo -e "${BLUE}Downloading $MODEL_TYPE model \'$MODEL_NAME\' via model-download...\\n${NC}"\n',
+    '    local EXISTING_MODEL_DIR="${TARGET_DIR}${MODEL_NAME}"\n\n    # Reuse previously converted OVMS model if already present.\n    if [[ -d "$EXISTING_MODEL_DIR" ]] && find "$EXISTING_MODEL_DIR" -mindepth 1 -print -quit >/dev/null 2>&1; then\n        echo -e "${GREEN}Model \'$MODEL_NAME\' already present in \'$EXISTING_MODEL_DIR\'. Skipping download.${NC}\\n"\n        return 0\n    fi\n\n    echo -e "${BLUE}Downloading $MODEL_TYPE model \'$MODEL_NAME\' via model-download...\\n${NC}"\n',
+    1,
+)
+
+content = content.replace(
     '    declare -A job_done\n    declare -A job_conversion_path\n',
     '    declare -A job_done\n    declare -A job_conversion_path\n    declare -A job_last_status\n\n    local status_log_every="${MODEL_DOWNLOAD_STATUS_LOG_EVERY:-10}"\n',
     1,
@@ -453,6 +462,7 @@ write_runtime_env_file() {
         MODEL_DOWNLOAD_HOST \
         MODEL_DOWNLOAD_PORT \
         MODEL_DOWNLOAD_IMAGE \
+        MODEL_DOWNLOAD_PLUGINS \
         MODEL_DOWNLOAD_JOB_MAX_ATTEMPTS \
         MODEL_DOWNLOAD_STATUS_LOG_EVERY \
         ALLOWED_HOSTS \
@@ -493,11 +503,13 @@ source ${quoted_runtime_env_file}
 
 image="\${MODEL_DOWNLOAD_IMAGE:-intel/model-download:latest}"
 pull_policy="\${MODEL_DOWNLOAD_PULL_POLICY:-if-missing}"
+plugins="\${MODEL_DOWNLOAD_PLUGINS:-openvino}"
 model_path=${quoted_model_path}
 host_port="\${MODEL_DOWNLOAD_PORT:-8200}"
 
 echo "Using external model-download image: \${image}"
 echo "Using model-download pull policy: \${pull_policy}"
+echo "Using model-download plugins: \${plugins}"
 echo "Using model-download model path: \${model_path}"
 
 docker rm -f model-download >/dev/null 2>&1 || true
@@ -541,7 +553,7 @@ docker run --rm \
     -e HUGGINGFACEHUB_API_TOKEN="\${HUGGINGFACEHUB_API_TOKEN:-}" \
     -e MAX_UPLOAD_SIZE_MB="\${MAX_UPLOAD_SIZE_MB:-500}" \
     -e UPLOAD_CHUNK_SIZE_KB="\${UPLOAD_CHUNK_SIZE_KB:-8}" \
-    -e ENABLED_PLUGINS=all \
+    -e ENABLED_PLUGINS="\${plugins}" \
     -e MODEL_PATH="\${model_path}" \
     -e OVMS_RELEASE_TAG="\${OVMS_RELEASE_TAG:-v2025.4.1}" \
     -e GETI_HOST="\${GETI_HOST:-}" \
@@ -550,7 +562,7 @@ docker run --rm \
     -e GETI_SERVER_API_VERSION="\${GETI_SERVER_API_VERSION:-v1}" \
     -e GETI_SERVER_SSL_VERIFY="\${GETI_SERVER_SSL_VERIFY:-False}" \
     "\${image}" \
-    --plugins all
+    --plugins "\${plugins}"
 EOF
 
     chmod +x "$script_path"
@@ -838,6 +850,7 @@ configure_runtime_env() {
     export MODEL_DOWNLOAD_HOST="$ip"
     export MODEL_DOWNLOAD_PORT=8200
     export MODEL_DOWNLOAD_IMAGE="${MODEL_DOWNLOAD_IMAGE}"
+    export MODEL_DOWNLOAD_PLUGINS="${MODEL_DOWNLOAD_PLUGINS}"
     export MODEL_DOWNLOAD_JOB_MAX_ATTEMPTS="${MODEL_DOWNLOAD_JOB_MAX_ATTEMPTS}"
     export MODEL_DOWNLOAD_STATUS_LOG_EVERY="${MODEL_DOWNLOAD_STATUS_LOG_EVERY}"
     export ALLOWED_HOSTS="*"
