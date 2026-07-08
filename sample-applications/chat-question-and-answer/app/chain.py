@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+import re
 from sqlalchemy.ext.asyncio import create_async_engine
 from langchain_core.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain_postgres.vectorstores import PGVector as EGAIVectorDB
@@ -132,6 +133,26 @@ logging.info(f"Using LLM inference backend: {LLM_BACKEND}")
 LLM_MODEL = os.getenv("LLM_MODEL", "Intel/neural-chat-7b-v3-3")
 RERANKER_ENDPOINT = os.getenv("RERANKER_ENDPOINT", "http://localhost:9090/rerank")
 callbacks = [StreamingStdOutCallbackHandler()]
+
+
+def strip_leaked_analysis_prefix(text: str) -> str:
+    """Remove known leaked reasoning preambles at the beginning of model output."""
+    patterns = [
+        r"^\s*analysis\s*:?\s*.*?(?:\n\s*\n|$)",
+        r"^\s*analysis\s*:?\s*.*?(?:assistant\s*final|assistantfinal)\s*",
+        r"^\s*analysis\s+the user wants:.*?(?:\n{1,2}|$)",
+        r"^\s*analysis\s*[:\-].*?(?:\n{1,2}|$)",
+    ]
+    cleaned = text
+    for pattern in patterns:
+        cleaned = re.sub(pattern, "", cleaned, flags=re.IGNORECASE | re.DOTALL)
+    cleaned = re.sub(
+        r"^\s*(?:assistant\s*final|assistantfinal)\s*:?\s*",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    return cleaned
 
 async def context_retriever_fn(chain_inputs: dict):
     """
@@ -270,12 +291,51 @@ async def process_chunks(conversation_messages, max_tokens):
         "question": question_text
     }
 
+    def _to_sse_chunks(chunk: str):
+        if chunk == "\n":
+            return ["data: \\n\\n\n\n"]
+        if chunk.endswith("\n"):
+            return [f"data: {chunk}\n\n", "data: \\n\\n\n\n"]
+        return [f"data: {chunk}\n\n"]
+
+    initial_buffer = ""
+    prefix_checked = False
+
     async for log in chain.astream(chain_input):
-        if log == "\n":
-            yield f"data: \\n\\n\n\n"
-        elif log.endswith("\n"):
-            yield f"data: {log}\n\n"
-            yield f"data: \\n\\n\n\n"
-        else:
-            yield f"data: {log}\n\n"
-        #yield f"data: {log}\n\n"
+        if not prefix_checked:
+            initial_buffer += log
+            starts_with_analysis = re.match(r"^\s*analysis", initial_buffer, flags=re.IGNORECASE) is not None
+            has_assistant_final = re.search(r"assistant\s*final|assistantfinal", initial_buffer, flags=re.IGNORECASE) is not None
+
+            # If output starts with leaked analysis, wait until assistantfinal marker arrives.
+            if starts_with_analysis and not has_assistant_final and len(initial_buffer) < 4096:
+                continue
+
+            if not starts_with_analysis and "\n" not in initial_buffer and len(initial_buffer) < 256:
+                continue
+
+            initial_buffer = strip_leaked_analysis_prefix(initial_buffer)
+            prefix_checked = True
+
+            if initial_buffer:
+                for sse_chunk in _to_sse_chunks(initial_buffer):
+                    yield sse_chunk
+            continue
+
+        log = re.sub(
+            r"^\s*(?:assistant\s*final|assistantfinal)\s*:?\s*",
+            "",
+            log,
+            flags=re.IGNORECASE,
+        )
+        if not log:
+            continue
+
+        for sse_chunk in _to_sse_chunks(log):
+            yield sse_chunk
+
+    if not prefix_checked and initial_buffer:
+        initial_buffer = strip_leaked_analysis_prefix(initial_buffer)
+        if initial_buffer:
+            for sse_chunk in _to_sse_chunks(initial_buffer):
+                yield sse_chunk
