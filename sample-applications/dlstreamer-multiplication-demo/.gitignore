@@ -1,0 +1,17 @@
+# Local runtime env files (generated from .env.example templates at first run).
+# These may contain locally-generated credentials (e.g. TURN server password)
+# and must not be committed.
+docker/.env
+src/ui/react/.env.local
+
+# Python venv used by tools/autorun.py
+tools/.venv/
+
+# Compiled Python bytecode (any depth)
+__pycache__/
+*.pyc
+
+# Build artifacts
+src/ui/react/dist/
+src/ui/react/node_modules/
+
