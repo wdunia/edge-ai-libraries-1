@@ -1,14 +1,27 @@
 import asyncio
-import inspect
 import json
 import os
-import time
+import re
 import psutil
-import subprocess
-from functools import wraps
+import requests
 from datetime import datetime
 from collections import deque
-from typing import Dict, List, AsyncGenerator, Any
+from typing import TypeAlias
+
+
+METRICS_ENDPOINT = os.environ.get("METRICS_ENDPOINT", "http://metrics-manager:9273/metrics")
+REQUEST_TIMEOUT_SECONDS = float(os.environ.get("METRICS_TIMEOUT_SECONDS", "2"))
+
+GPU_METRIC_PATTERN = re.compile(
+    r'^gpu_engine_usage_usage\{(?P<labels>[^}]*)}\s+(?P<value>[-+]?\d+(?:\.\d+)?)'
+)
+NPU_METRIC_PATTERN = re.compile(
+    r'^npu_utilization\{(?P<labels>[^}]*)}\s+(?P<value>[-+]?\d+(?:\.\d+)?)'
+)
+LABEL_PATTERN = re.compile(r'(\w+)="([^"]*)"')
+
+
+GpuUsageSnapshot: TypeAlias = dict[str, float | str]
 
 
 class SystemMonitor:
@@ -35,25 +48,75 @@ class SystemMonitor:
         used_gb = mem.used / (1024 ** 3)
         return f"{used_gb:.2f}/{total_gb:.2f})"
 
+    def _fetch_metrics_text(self):
+        response = requests.get(METRICS_ENDPOINT, timeout=REQUEST_TIMEOUT_SECONDS)
+        response.raise_for_status()
+        return response.text
+
+    @staticmethod
+    def _parse_labels(labels_text: str):
+        return {key: value for key, value in LABEL_PATTERN.findall(labels_text)}
+
 
     def get_gpu_usage(self):
         try:
-            host_ip = os.environ.get("HOST_IP")
-            bcs = subprocess.run('curl -s http://'+ host_ip + ':9273/metrics | grep gpu_engine_usage_usage{engine | grep bcs | cut -d" " -f2', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
-            ccs = subprocess.run('curl -s http://'+ host_ip + ':9273/metrics | grep gpu_engine_usage_usage{engine | grep ccs | cut -d" " -f2', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
-            rcs = subprocess.run('curl -s http://'+ host_ip + ':9273/metrics | grep gpu_engine_usage_usage{engine | grep rcs | cut -d" " -f2', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
-            vcs = subprocess.run('curl -s http://'+ host_ip + ':9273/metrics | grep gpu_engine_usage_usage{engine | grep vcs | cut -d" " -f2', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
-            vecs = subprocess.run('curl -s http://'+ host_ip + ':9273/metrics | grep gpu_engine_usage_usage{engine | grep vecs | cut -d" " -f2', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
-            return {"bcs": float(bcs), "ccs": float(ccs), "rcs": float(rcs), "vcs": float(vcs), "vecs": float(vecs)}
-        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
-            return "N/A"
+            metrics_text = self._fetch_metrics_text()
+            gpu_usage: GpuUsageSnapshot = {
+                "bcs": "N/A",
+                "ccs": "N/A",
+                "rcs": "N/A",
+                "vcs": "N/A",
+                "vecs": "N/A",
+            }
+
+            engine_aliases = {
+                "bcs": "bcs",
+                "blitter": "bcs",
+                "copy": "bcs",
+                "ccs": "ccs",
+                "compute": "ccs",
+                "rcs": "rcs",
+                "render": "rcs",
+                "vcs": "vcs",
+                "video": "vcs",
+                "vecs": "vecs",
+                "videoenhance": "vecs",
+            }
+
+            for line in metrics_text.splitlines():
+                match = GPU_METRIC_PATTERN.match(line.strip())
+                if not match:
+                    continue
+
+                labels = self._parse_labels(match.group("labels"))
+                raw_engine = labels.get("engine", "").lower()
+                engine = engine_aliases.get(raw_engine)
+                if not engine:
+                    continue
+
+                gpu_usage[engine] = float(match.group("value"))
+
+            return gpu_usage
+        except (requests.RequestException, ValueError):
+            return {
+                "bcs": "N/A",
+                "ccs": "N/A",
+                "rcs": "N/A",
+                "vcs": "N/A",
+                "vecs": "N/A",
+            }
         
     def get_npu_usage(self):
         try:
-            host_ip = os.environ.get("HOST_IP")
-            result = subprocess.run('curl -s http://'+ host_ip + ':9273/metrics | grep npu_utilization{ | cut -d" " -f2', shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT).stdout
-            return float(result)
-        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
+            metrics_text = self._fetch_metrics_text()
+
+            for line in metrics_text.splitlines():
+                match = NPU_METRIC_PATTERN.match(line.strip())
+                if match:
+                    return float(match.group("value"))
+
+            return "N/A"
+        except (requests.RequestException, ValueError):
             return "N/A"
 
 
