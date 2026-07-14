@@ -31,6 +31,48 @@ class Stream:
     def _build_stream_url(self, peer_id: str) -> str:
         return f"http://{self.external_ip}:8889/{peer_id}"
 
+    def _load_stream_info_from_pipeline(self, stream_id: str) -> dict[str, str] | None:
+        url = f"{self._base_url}/pipelines/{stream_id}"
+
+        try:
+            response = requests.get(url, timeout=REQUEST_TIMEOUT)
+            response.raise_for_status()
+            summary = response.json()
+        except requests.RequestException as e:
+            logger.warning(f"Unable to load pipeline summary for {stream_id}: {e}")
+            return None
+
+        request = summary.get("request", {}) if isinstance(summary, dict) else {}
+        destination = request.get("destination", {}) if isinstance(request, dict) else {}
+        frame = destination.get("frame", {}) if isinstance(destination, dict) else {}
+        parameters = request.get("parameters", {}) if isinstance(request, dict) else {}
+        detection_properties = (
+            parameters.get("detection-properties", {})
+            if isinstance(parameters, dict)
+            else {}
+        )
+
+        peer_id = frame.get("peer-id") if isinstance(frame, dict) else None
+        target_device = (
+            detection_properties.get("device")
+            if isinstance(detection_properties, dict)
+            else None
+        )
+
+        if not isinstance(peer_id, str) or not peer_id:
+            logger.warning(f"Pipeline summary for {stream_id} does not contain peer-id")
+            return None
+
+        stream_info = {
+            "peer_id": peer_id,
+            "target_device": target_device if isinstance(target_device, str) else "unknown",
+        }
+
+        with self._lock:
+            self.streaminfo[stream_id] = stream_info
+
+        return stream_info
+
     def add_stream(self, stream_path: str, model_path: str, target_device: str) -> dict[str, str]:
         hex_v = os.urandom(8).hex()
         peer_id = f"pallet_defect_detection_{hex_v}"
@@ -132,6 +174,9 @@ class Stream:
     def view_stream(self, stream_id: str) -> dict:
         with self._lock:
             stream_info = self.streaminfo.get(stream_id)
+
+        if not stream_info:
+            stream_info = self._load_stream_info_from_pipeline(stream_id)
 
         if stream_info and stream_info.get("peer_id"):
             stream_url = self._build_stream_url(stream_info["peer_id"])
