@@ -2,6 +2,7 @@ import logging
 import os
 import threading
 import urllib.parse
+from typing import Any
 from urllib.parse import urlparse
 
 import requests
@@ -21,7 +22,7 @@ class Stream:
         # External host IP for URLs that reach the browser (WebRTC)
         self.external_ip = os.environ.get("HOST_IP", os.environ.get("ip", "localhost"))
         self._lock = threading.Lock()
-        self.streaminfo: dict[str, str] = {}
+        self.streaminfo: dict[str, dict[str, str]] = {}
 
     @property
     def _base_url(self) -> str:
@@ -29,6 +30,7 @@ class Stream:
 
     def add_stream(self, stream_path: str, model_path: str, target_device: str) -> str:
         hex_v = os.urandom(8).hex()
+        peer_id = f"pallet-defect-detection-{hex_v}"
         source_scheme = urlparse(stream_path).scheme.lower()
         is_rtsp_source = source_scheme == "rtsp"
         is_file_source = source_scheme == "file"
@@ -39,7 +41,7 @@ class Stream:
             if is_rtsp_source
             else "pallet_defect_detection"
         )
-        source = {
+        source: dict[str, Any] = {
             "uri": stream_path,
             "type": "uri",
         }
@@ -57,7 +59,7 @@ class Stream:
                 },
                 "frame": {
                     "type": "webrtc",
-                    "peer-id": f"pallet-defect-detection-{hex_v}",
+                    "peer-id": peer_id,
                 },
             },
             "parameters": {
@@ -82,7 +84,10 @@ class Stream:
 
         stream_id = response.text.replace('"', '').strip()
         with self._lock:
-            self.streaminfo[stream_id] = target_device
+            self.streaminfo[stream_id] = {
+                "target_device": target_device,
+                "peer_id": peer_id,
+            }
 
         logger.info(f"Pipeline created: {stream_id}")
         return response.text
@@ -109,27 +114,20 @@ class Stream:
         return {"message": f"Stream {stream_id} deleted successfully."}
 
     def view_stream(self, stream_id: str) -> dict:
-        url = f"{self._base_url}/stream/{stream_id}"
-
-        try:
-            response = requests.get(url, timeout=REQUEST_TIMEOUT)
-            response.raise_for_status()
-            stream_path = response.text.replace('"', '').strip()
-        except (requests.RequestException, ValueError) as e:
-            logger.warning(f"Stream not ready for {stream_id}: {e}")
-            stream_path = None
-
-        if stream_path:
-            stream_url = f"http://{self.external_ip}:8889/{stream_path}/"
-        else:
-            stream_url = None
-
         with self._lock:
-            target_device = self.streaminfo.get(stream_id)
+            stream_info = self.streaminfo.get(stream_id)
+
+        if stream_info and stream_info.get("peer_id"):
+            stream_url = f"http://{self.external_ip}:8889/{stream_info['peer_id']}/"
+            target_device = stream_info.get("target_device", "unknown")
+        else:
+            logger.warning(f"Stream metadata not found for {stream_id}")
+            stream_url = None
+            target_device = "unknown"
 
         return {
             stream_id: {
-                "target_device": target_device or "unknown",
+                "target_device": target_device,
                 "url": stream_url or "",
             }
         }
