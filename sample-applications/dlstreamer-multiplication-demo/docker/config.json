@@ -20,10 +20,46 @@
         "auto_start": false
       },
       {
+        "name": "pallet_defect_detection_gpu",
+        "source": "gstreamer",
+        "queue_maxsize": 50,
+        "pipeline": "{auto_source} ! parsebin ! vah264dec ! vapostproc ! video/x-raw(memory:VAMemory) ! queue ! gvadetect name=detection device=GPU pre-process-backend=va-surface-sharing ! gvametaconvert add-empty-results=true name=metaconvert ! gvametapublish name=destination ! queue ! gvafpscounter ! appsink name=appsink",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "detection-properties": {
+              "element": {
+                "name": "detection",
+                "format": "element-properties"
+              }
+            }
+          }
+        },
+        "auto_start": false
+      },
+      {
         "name": "pallet_defect_detection_file_loop",
         "source": "gstreamer",
         "queue_maxsize": 50,
         "pipeline": "{auto_source} ! h264parse ! decodebin ! videoconvert ! gvadetect name=detection ! queue ! gvawatermark ! gvafpscounter ! gvametaconvert add-empty-results=true name=metaconvert ! gvametapublish name=destination ! appsink name=appsink",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "detection-properties": {
+              "element": {
+                "name": "detection",
+                "format": "element-properties"
+              }
+            }
+          }
+        },
+        "auto_start": false
+      },
+      {
+        "name": "pallet_defect_detection_file_loop_gpu",
+        "source": "gstreamer",
+        "queue_maxsize": 50,
+        "pipeline": "{auto_source} ! h264parse ! vah264dec ! vapostproc ! video/x-raw(memory:VAMemory) ! queue ! gvadetect name=detection device=GPU pre-process-backend=va-surface-sharing ! gvametaconvert add-empty-results=true name=metaconvert ! gvametapublish name=destination ! queue ! gvafpscounter ! appsink name=appsink",
         "parameters": {
           "type": "object",
           "properties": {

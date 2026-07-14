@@ -1,5 +1,5 @@
 import { appConfig } from "../config/appConfig";
-import type { MetricsSnapshot, RawMetricsEvent, RawGpuMetrics } from "../types/metrics";
+import type { MetricsSnapshot, RawMetricsEvent, RawGpuMetrics, RawRamMetrics } from "../types/metrics";
 
 function normalizeMetricValue(value: number | "N/A"): number | null {
   return value === "N/A" ? null : value;
@@ -12,6 +12,14 @@ function normalizeGpuMetrics(gpu: RawGpuMetrics) {
     rcs: normalizeMetricValue(gpu.rcs),
     vcs: normalizeMetricValue(gpu.vcs),
     vecs: normalizeMetricValue(gpu.vecs),
+  };
+}
+
+function normalizeRamMetrics(ram: RawRamMetrics) {
+  return {
+    percent: ram?.percent ?? null,
+    usedGb: ram?.used_gb ?? null,
+    totalGb: ram?.total_gb ?? null,
   };
 }
 
@@ -29,7 +37,7 @@ export function subscribeToMetrics(
       cpu: normalizeMetricValue(raw.cpu),
       gpu: normalizeGpuMetrics(raw.gpu),
       npu: normalizeMetricValue(raw.npu),
-      ram: normalizeMetricValue(raw.ram),
+      ram: normalizeRamMetrics(raw.ram),
     });
   };
 

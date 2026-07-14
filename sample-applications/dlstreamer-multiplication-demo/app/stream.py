@@ -82,12 +82,16 @@ class Stream:
         peer_id = f"pallet_defect_detection_{hex_v}"
         source_scheme = urlparse(stream_path).scheme.lower()
         is_file_source = source_scheme == "file"
+        is_gpu_target = target_device.upper() == "GPU"
 
-        pipeline_version = (
-            "pallet_defect_detection_file_loop"
-            if is_file_source
-            else "pallet_defect_detection"
-        )
+        if is_file_source and is_gpu_target:
+            pipeline_version = "pallet_defect_detection_file_loop_gpu"
+        elif is_file_source:
+            pipeline_version = "pallet_defect_detection_file_loop"
+        elif is_gpu_target:
+            pipeline_version = "pallet_defect_detection_gpu"
+        else:
+            pipeline_version = "pallet_defect_detection"
 
         source: dict[str, Any]
         if is_file_source:

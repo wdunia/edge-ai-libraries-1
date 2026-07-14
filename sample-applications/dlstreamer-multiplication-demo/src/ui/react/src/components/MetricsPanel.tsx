@@ -167,7 +167,7 @@ export function MetricsPanel() {
                 cpu: [...previous.cpu, nextMetrics.cpu ?? 0].slice(-30),
                 npu: [...previous.npu, nextMetrics.npu ?? 0].slice(-30),
                 fps: previous.fps,
-                ram: [...previous.ram, nextMetrics.ram ?? 0].slice(-30),
+                ram: [...previous.ram, nextMetrics.ram.percent ?? 0].slice(-30),
                 gpu: {
                     bcs: [...previous.gpu.bcs, nextMetrics.gpu.bcs ?? 0].slice(-30),
                     ccs: [...previous.gpu.ccs, nextMetrics.gpu.ccs ?? 0].slice(-30),
@@ -184,7 +184,10 @@ export function MetricsPanel() {
 
     const cpuValue = formatPercent(metrics?.cpu);
     const npuValue = formatPercent(metrics?.npu);
-    const ramValue = formatPercent(metrics?.ram);
+    const ramValue =
+        metrics?.ram.usedGb != null && metrics?.ram.totalGb != null && metrics?.ram.percent != null
+            ? `${metrics.ram.usedGb.toFixed(1)}/${metrics.ram.totalGb.toFixed(1)} GB (${metrics.ram.percent.toFixed(1)}%)`
+            : "N/A";
     const fpsValue =
         history.fps.length > 0
             ? Math.round(history.fps.at(-1) ?? 0).toString()
@@ -204,7 +207,7 @@ export function MetricsPanel() {
                 <MetricTile title="CPU" value={cpuValue} color={accent.blue} values={history.cpu} />
                 <MetricTile title="NPU" value={npuValue} color={accent.purple} values={history.npu} />
                 <MetricTile title="FPS" value={fpsValue} color={accent.green} values={history.fps} />
-                <MetricTile title="RAM" value={ramValue} color={accent.orange} values={history.ram} />
+                <MetricTile title="HOST RAM" value={ramValue} color={accent.orange} values={history.ram} />
             </SimpleGrid>
 
             <Box style={{ flex: 1, minHeight: 0 }}>

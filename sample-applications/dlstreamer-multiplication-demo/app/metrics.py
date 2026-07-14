@@ -22,6 +22,7 @@ LABEL_PATTERN = re.compile(r'(\w+)="([^"]*)"')
 
 
 GpuUsageSnapshot: TypeAlias = dict[str, float | str]
+RamUsageSnapshot: TypeAlias = dict[str, float]
 
 
 class SystemMonitor:
@@ -46,7 +47,18 @@ class SystemMonitor:
         mem = psutil.virtual_memory()
         total_gb = mem.total / (1024 ** 3)
         used_gb = mem.used / (1024 ** 3)
-        return f"{used_gb:.2f}/{total_gb:.2f})"
+        return {
+            "used_gb": round(used_gb, 2),
+            "total_gb": round(total_gb, 2),
+        }
+
+    def get_ram_usage(self) -> RamUsageSnapshot:
+        ram_gb = self.get_ram_usage_in_gb()
+        return {
+            "percent": self.get_ram_usage_in_percent(),
+            "used_gb": ram_gb["used_gb"],
+            "total_gb": ram_gb["total_gb"],
+        }
 
     def _fetch_metrics_text(self):
         response = requests.get(METRICS_ENDPOINT, timeout=REQUEST_TIMEOUT_SECONDS)
@@ -126,11 +138,7 @@ class SystemMonitor:
             cpu = self.get_cpu_usage()
             gpu = self.get_gpu_usage()
             npu = self.get_npu_usage()
-
-            if ram_type == "gb":
-                ram = self.get_ram_usage_in_gb()
-            else:         
-                ram = self.get_ram_usage_in_percent()
+            ram = self.get_ram_usage()
             
             data = {"timestamp": timestamp_n, "cpu": cpu, "gpu": gpu, "npu": npu, "ram": ram}
             yield f"data: {json.dumps(data)}\n\n"  # SSE format
