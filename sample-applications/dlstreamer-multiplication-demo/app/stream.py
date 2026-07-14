@@ -28,26 +28,38 @@ class Stream:
     def _base_url(self) -> str:
         return f"http://{self.pipeline_server_host}:8080"
 
-    def add_stream(self, stream_path: str, model_path: str, target_device: str) -> str:
+    def _build_stream_url(self, peer_id: str) -> str:
+        return f"http://{self.external_ip}:8889/{peer_id}"
+
+    def add_stream(self, stream_path: str, model_path: str, target_device: str) -> dict[str, str]:
         hex_v = os.urandom(8).hex()
-        peer_id = f"pallet-defect-detection-{hex_v}"
+        peer_id = f"pallet_defect_detection_{hex_v}"
         source_scheme = urlparse(stream_path).scheme.lower()
-        is_rtsp_source = source_scheme == "rtsp"
         is_file_source = source_scheme == "file"
-        # Keep file inputs on the default template; *_file_loop is not available
-        # in the image-based demo stack and returns "Pipeline not found".
+
         pipeline_version = (
-            "pallet_defect_detection_rtsp"
-            if is_rtsp_source
+            "pallet_defect_detection_file_loop"
+            if is_file_source
             else "pallet_defect_detection"
         )
-        source: dict[str, Any] = {
-            "uri": stream_path,
-            "type": "uri",
-        }
+
+        source: dict[str, Any]
         if is_file_source:
-            # Use source-level loop support so file pipelines keep running.
-            source["properties"] = {"loop": True}
+            source_path = urllib.parse.unquote(urlparse(stream_path).path)
+            source = {
+                "element": "multifilesrc",
+                "type": "gst",
+                "properties": {
+                    "location": source_path,
+                    "loop": True,
+                    "stop-index": 0,
+                },
+            }
+        else:
+            source = {
+                "uri": stream_path,
+                "type": "uri",
+            }
 
         payload = {
             "source": source,
@@ -90,7 +102,11 @@ class Stream:
             }
 
         logger.info(f"Pipeline created: {stream_id}")
-        return response.text
+        return {
+            "stream_id": stream_id,
+            "peer_id": peer_id,
+            "stream_url": self._build_stream_url(peer_id),
+        }
 
     def view_metadata(self, file_path: str) -> str:
         encoded_path = urllib.parse.quote(file_path)
@@ -118,7 +134,7 @@ class Stream:
             stream_info = self.streaminfo.get(stream_id)
 
         if stream_info and stream_info.get("peer_id"):
-            stream_url = f"http://{self.external_ip}:8889/{stream_info['peer_id']}/"
+            stream_url = self._build_stream_url(stream_info["peer_id"])
             target_device = stream_info.get("target_device", "unknown")
         else:
             logger.warning(f"Stream metadata not found for {stream_id}")

@@ -1,15 +1,11 @@
 import asyncio
 import logging
 import os
-import time
 import uvicorn
-from pathlib import Path
-from fastapi import FastAPI, HTTPException, File, UploadFile
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from http import HTTPStatus
-from pydantic import BaseModel
-from typing import Annotated
 from urllib.parse import unquote
 from .metrics import SystemMonitor
 from .stream import Stream
@@ -71,7 +67,7 @@ async def add_pipeline(stream_path, model_path, target_device):
         response = await asyncio.to_thread(
             stream.add_stream, stream_path, model_path, target_device
         )
-        return JSONResponse(content={"status": "Success", "message": f"{response}"})
+        return JSONResponse(content={"status": "Success", "metadata": response})
     except Exception as e:
         raise HTTPException(
             status_code=HTTPStatus.INTERNAL_SERVER_ERROR,

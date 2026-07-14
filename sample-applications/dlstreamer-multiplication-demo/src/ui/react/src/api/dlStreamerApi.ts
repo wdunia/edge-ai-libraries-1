@@ -137,7 +137,11 @@ export type CreatedPipeline = {
 
 export type AddPipelineResponse = {
   status: string;
-  message: string;
+  metadata: {
+    stream_id: string;
+    peer_id: string;
+    stream_url: string;
+  };
 };
 
 export type StreamInfo = {
@@ -179,18 +183,18 @@ export async function createCameraPipeline(
 
   const data = (await response.json()) as AddPipelineResponse;
 
-  if (data.status !== "Success") {
-    throw new Error(`Failed to create pipeline. Message: ${data.message}`);
+  if (data.status !== "Success" || !data.metadata) {
+    throw new Error("Failed to create pipeline. Missing stream metadata.");
   }
 
-  const streamId = data.message.replaceAll('"', "").trim();
-
-  const streamInfo = await getStreamInfo(streamId);
+  const streamId = data.metadata.stream_id.trim();
+  const peerId = data.metadata.peer_id.trim();
+  const streamUrl = data.metadata.stream_url.trim();
 
   return {
     streamId,
-    peerId: streamId,
-    streamUrl: streamInfo.streamUrl ?? `${appConfig.webrtcUrl}/${streamId}/`,
+    peerId,
+    streamUrl,
   };
 }
 

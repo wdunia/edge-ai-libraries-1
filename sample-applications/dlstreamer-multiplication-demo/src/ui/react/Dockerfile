@@ -58,6 +58,6 @@ RUN mkdir -p /var/cache/nginx/proxy_temp
 RUN mkdir -p /var/cache/nginx/fastcgi_temp
 RUN mkdir -p /var/cache/nginx/uwsgi_temp
 RUN mkdir -p /var/cache/nginx/scgi_temp
-run chmod -R 777 /var/cache/nginx
+RUN chmod -R 777 /var/cache/nginx
 # Revert to the unprivileged nginx user (UID/GID 101)
 

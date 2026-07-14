@@ -44,6 +44,7 @@ services:
     volumes:
       # Shared sample assets live under microservices/dlstreamer-pipeline-server/resources.
       - ../../../microservices/dlstreamer-pipeline-server/resources:/home/pipeline-server/resources:rw
+      - ./config.json:/home/pipeline-server/config.json:ro
       - vol_pipeline_root:/var/cache/pipeline_root:rw
       - /run/udev:/run/udev:ro
       - /dev:/dev
