@@ -218,6 +218,11 @@ main() {
 
     update_env_var "${DOCKER_ENV_FILE}" "ip" "${ip}"
     update_env_var "${DOCKER_ENV_FILE}" "WHIP_SERVER_IP" "${ip}"
+    update_env_var "${DOCKER_ENV_FILE}" "VITE_PIPELINE_SERVER_URL" "http://${ip}:8080"
+    update_env_var "${DOCKER_ENV_FILE}" "VITE_API_URL" "http://${ip}:8888"
+    update_env_var "${DOCKER_ENV_FILE}" "VITE_WEBRTC_URL" "http://${ip}:8889"
+    update_env_var "${DOCKER_ENV_FILE}" "VITE_SYSTEM_INFO" "${SYSTEM_INFO_TEXT}"
+    update_env_var "${DOCKER_ENV_FILE}" "VITE_MODEL_PATH" "${MODEL_PATH_IN_CONTAINER}"
     update_env_var "${DOCKER_ENV_FILE}" "VITE_DEFAULT_STREAM_URL" "${default_stream_url}"
 
     update_env_var "${UI_ENV_FILE}" "VITE_PIPELINE_SERVER_URL" "http://${ip}:8080"
