@@ -31,6 +31,10 @@ class Stream:
     def _build_stream_url(self, peer_id: str) -> str:
         return f"http://{self.external_ip}:8889/{peer_id}"
 
+    @staticmethod
+    def _build_model_instance_id(target_device: str) -> str:
+        return f"pallet_defect_detection_{target_device.lower()}_inst0"
+
     def _load_stream_info_from_pipeline(self, stream_id: str) -> dict[str, str] | None:
         url = f"{self._base_url}/pipelines/{stream_id}"
 
@@ -120,6 +124,7 @@ class Stream:
                 "detection-properties": {
                     "model": model_path,
                     "device": target_device,
+                    "model-instance-id": self._build_model_instance_id(target_device),
                 }
             },
         }
