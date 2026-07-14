@@ -31,6 +31,7 @@ class Stream:
         hex_v = os.urandom(8).hex()
         source_scheme = urlparse(stream_path).scheme.lower()
         is_rtsp_source = source_scheme == "rtsp"
+        is_file_source = source_scheme == "file"
         # Keep file inputs on the default template; *_file_loop is not available
         # in the image-based demo stack and returns "Pipeline not found".
         pipeline_version = (
@@ -42,6 +43,9 @@ class Stream:
             "uri": stream_path,
             "type": "uri",
         }
+        if is_file_source:
+            # Use source-level loop support so file pipelines keep running.
+            source["properties"] = {"loop": True}
 
         payload = {
             "source": source,

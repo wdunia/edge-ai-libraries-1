@@ -2,7 +2,7 @@ import { AppShell, Group, Text, Box, Paper, Button } from "@mantine/core";
 import { LeftPanel } from "./components/LeftPanel";
 import { accent, bg, type DeviceType } from "./styles/theme";
 import { CameraGrid } from "./components/CameraGrid";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MetricsPanel } from "./components/MetricsPanel";
 import type { StreamTile } from "./components/CameraTile";
 import {
@@ -26,6 +26,7 @@ function App() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>(9);
   const [streams, setStreams] = useState<StreamTile[]>([]);
+  const streamsRef = useRef<StreamTile[]>([]);
 
   async function handleAddPipeline(data: {
     name: string;
@@ -58,6 +59,10 @@ function App() {
   useEffect(() => {
     checkHealth().then(setHealth);
   }, []);
+
+  useEffect(() => {
+    streamsRef.current = streams;
+  }, [streams]);
 
   async function loadRunningStreams() {
     const pipelineStatuses = await getPipelineStatus();
@@ -96,6 +101,16 @@ function App() {
     async function refreshStreamFps() {
       try {
         const pipelineStatuses = await getPipelineStatus();
+        const streamIdsNeedingUrl = streamsRef.current
+          .filter((stream) => !stream.streamUrl && !!stream.streamId)
+          .filter((stream) => {
+            const status = pipelineStatuses.find(
+              (pipeline) => pipeline.id === stream.streamId
+            );
+
+            return status?.state === "RUNNING";
+          })
+          .map((stream) => stream.streamId as string);
 
         setStreams((previous) =>
           previous.map((stream) => {
@@ -118,6 +133,37 @@ function App() {
             };
           })
         );
+
+        if (streamIdsNeedingUrl.length > 0) {
+          const uniqueStreamIds = [...new Set(streamIdsNeedingUrl)];
+          const streamInfoEntries = await Promise.all(
+            uniqueStreamIds.map(async (streamId) => {
+              const streamInfo = await getStreamInfo(streamId);
+              return [streamId, streamInfo] as const;
+            })
+          );
+
+          const streamInfoMap = new Map(streamInfoEntries);
+
+          setStreams((previous) =>
+            previous.map((stream) => {
+              if (!stream.streamId || stream.streamUrl) {
+                return stream;
+              }
+
+              const streamInfo = streamInfoMap.get(stream.streamId);
+              if (!streamInfo?.streamUrl) {
+                return stream;
+              }
+
+              return {
+                ...stream,
+                streamUrl: streamInfo.streamUrl,
+                type: streamInfo.device ?? stream.type,
+              };
+            })
+          );
+        }
       } catch (error) {
         console.error(error);
       }

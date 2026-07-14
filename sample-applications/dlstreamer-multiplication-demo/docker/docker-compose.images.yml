@@ -26,7 +26,7 @@ services:
       - ENABLE_RTSP=true
       - RTSP_PORT=8554
       - ENABLE_WEBRTC=true
-      - WEBRTC_SIGNALING_SERVER=http://mediamtx-server:${WHIP_SERVER_PORT}
+      - WEBRTC_SIGNALING_SERVER=http://mediamtx:${WHIP_SERVER_PORT}
       - LOG_LEVEL=${LOG_LEVEL}
       - HTTPS=false
       - MTLS_VERIFICATION=false
