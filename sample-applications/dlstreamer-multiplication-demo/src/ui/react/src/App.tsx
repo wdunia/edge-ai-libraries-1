@@ -15,6 +15,7 @@ import {
   type ResolutionPreset,
 } from "./api/dlStreamerApi";
 import { deleteAllPipelines } from "./api/dlStreamerApi";
+import { subscribeToMetrics } from "./api/metricsApi";
 import { appConfig } from "./config/appConfig";
 
 type LayoutMode = 1 | 4 | 9 | 16 | 25 | 36;
@@ -27,6 +28,7 @@ function App() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [layoutMode, setLayoutMode] = useState<LayoutMode>(9);
   const [streams, setStreams] = useState<StreamTile[]>([]);
+  const [hostRamSummary, setHostRamSummary] = useState<string>("N/A");
   const streamsRef = useRef<StreamTile[]>([]);
 
   async function handleAddPipeline(data: {
@@ -74,6 +76,22 @@ function App() {
   useEffect(() => {
     streamsRef.current = streams;
   }, [streams]);
+
+  useEffect(() => {
+    return subscribeToMetrics(
+      (metrics) => {
+        if (metrics.ram.usedGb != null && metrics.ram.totalGb != null) {
+          setHostRamSummary(
+            `${Math.round(metrics.ram.usedGb)}/${Math.round(metrics.ram.totalGb)} GB`
+          );
+          return;
+        }
+
+        setHostRamSummary("N/A");
+      },
+      console.error
+    );
+  }, []);
 
   async function loadRunningStreams() {
     const pipelineStatuses = await getPipelineStatus();
@@ -386,6 +404,24 @@ function App() {
 
                   <Text size="xl" fw={900} c={accent.blue} lh={1.1}>
                     {streams.length}
+                  </Text>
+                </div>
+
+                <Box
+                  style={{
+                    width: 1,
+                    height: 38,
+                    background: bg.border,
+                  }}
+                />
+
+                <div>
+                  <Text size="xs" fw={700} c="dimmed" tt="uppercase" lts="0.18em">
+                    Host RAM
+                  </Text>
+
+                  <Text size="xl" fw={900} c={accent.orange} lh={1.1}>
+                    {hostRamSummary}
                   </Text>
                 </div>
 

@@ -1,18 +1,5 @@
-export type GpuMetrics = {
-  bcs: number | null;
-  ccs: number | null;
-  rcs: number | null;
-  vcs: number | null;
-  vecs: number | null;
-};
-
-export type RawGpuMetrics = {
-  bcs: number | "N/A";
-  ccs: number | "N/A";
-  rcs: number | "N/A";
-  vcs: number | "N/A";
-  vecs: number | "N/A";
-};
+export type GpuMetrics = number | null;
+export type RawGpuMetrics = number | "N/A";
 
 export type RawRamMetrics = {
   percent: number;

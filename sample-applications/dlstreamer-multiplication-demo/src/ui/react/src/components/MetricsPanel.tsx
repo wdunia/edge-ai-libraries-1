@@ -107,17 +107,10 @@ function MetricTile({
 export function MetricsPanel() {
     const [metrics, setMetrics] = useState<MetricsSnapshot | null>(null);
     const [history, setHistory] = useState({
+        gpu: [0],
         cpu: [0],
         npu: [0],
         fps: [0],
-        ram: [0],
-        gpu: {
-            bcs: [0],
-            ccs: [0],
-            rcs: [0],
-            vcs: [0],
-            vecs: [0],
-        },
     });
 
     useEffect(() => {
@@ -164,17 +157,10 @@ export function MetricsPanel() {
             setMetrics(nextMetrics);
 
             setHistory((previous) => ({
+                gpu: [...previous.gpu, nextMetrics.gpu ?? 0].slice(-30),
                 cpu: [...previous.cpu, nextMetrics.cpu ?? 0].slice(-30),
                 npu: [...previous.npu, nextMetrics.npu ?? 0].slice(-30),
                 fps: previous.fps,
-                ram: [...previous.ram, nextMetrics.ram.percent ?? 0].slice(-30),
-                gpu: {
-                    bcs: [...previous.gpu.bcs, nextMetrics.gpu.bcs ?? 0].slice(-30),
-                    ccs: [...previous.gpu.ccs, nextMetrics.gpu.ccs ?? 0].slice(-30),
-                    rcs: [...previous.gpu.rcs, nextMetrics.gpu.rcs ?? 0].slice(-30),
-                    vcs: [...previous.gpu.vcs, nextMetrics.gpu.vcs ?? 0].slice(-30),
-                    vecs: [...previous.gpu.vecs, nextMetrics.gpu.vecs ?? 0].slice(-30),
-                },
             }));
         }, console.error);
     }, []);
@@ -182,36 +168,25 @@ export function MetricsPanel() {
     const formatPercent = (value: number | null | undefined) =>
         value == null ? "N/A" : `${value.toFixed(1)}%`;
 
+    const gpuValue = formatPercent(metrics?.gpu);
     const cpuValue = formatPercent(metrics?.cpu);
     const npuValue = formatPercent(metrics?.npu);
-    const ramValue =
-        metrics?.ram.usedGb != null && metrics?.ram.totalGb != null && metrics?.ram.percent != null
-            ? `${metrics.ram.usedGb.toFixed(1)}/${metrics.ram.totalGb.toFixed(1)} GB (${metrics.ram.percent.toFixed(1)}%)`
-            : "N/A";
     const fpsValue =
         history.fps.length > 0
             ? Math.round(history.fps.at(-1) ?? 0).toString()
             : "N/A";
 
-    const gpuSeries = [
-        { label: "BCS", color: accent.green, data: history.gpu.bcs },
-        { label: "RCS", color: accent.blue, data: history.gpu.rcs },
-        { label: "CCS", color: accent.purple, data: history.gpu.ccs },
-        { label: "VCS", color: accent.orange, data: history.gpu.vcs },
-        { label: "VECS", color: accent.red, data: history.gpu.vecs },
-    ];
-
     return (
         <Stack gap="xs" style={{ height: "100%", minHeight: 0 }}>
             <SimpleGrid cols={4} spacing="md">
-                <MetricTile title="CPU" value={cpuValue} color={accent.blue} values={history.cpu} />
+                <MetricTile title="GPU" value={gpuValue} color={accent.green} values={history.gpu} />
                 <MetricTile title="NPU" value={npuValue} color={accent.purple} values={history.npu} />
+                <MetricTile title="CPU" value={cpuValue} color={accent.blue} values={history.cpu} />
                 <MetricTile title="FPS" value={fpsValue} color={accent.green} values={history.fps} />
-                <MetricTile title="HOST RAM" value={ramValue} color={accent.orange} values={history.ram} />
             </SimpleGrid>
 
             <Box style={{ flex: 1, minHeight: 0 }}>
-                <GpuMetricCard series={gpuSeries} />
+                <GpuMetricCard data={history.gpu} color={accent.green} />
             </Box>
         </Stack>
     );

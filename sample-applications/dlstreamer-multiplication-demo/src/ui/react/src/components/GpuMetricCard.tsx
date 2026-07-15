@@ -16,32 +16,24 @@ import classes from "../styles/MetricsPanel.module.scss"
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend)
 
 type GpuSeries = {
-    label: string
-    color: string
     data: number[]
+    color: string
 }
 
-type GpuMetricCardProps = {
-    series: GpuSeries[]
-}
-
-export function GpuMetricCard({ series }: GpuMetricCardProps) {
-    const labels = Array.from(
-        { length: Math.max(...series.map(({ data }) => data.length), 0) },
-        () => ""
-    )
+export function GpuMetricCard({ data, color }: GpuSeries) {
+    const labels = Array.from({ length: data.length }, () => "")
 
     const chartData = {
         labels,
-        datasets: series.map(({ label, color, data }) => ({
-            label,
+        datasets: [{
+            label: "GPU",
             data,
             borderColor: color,
             borderWidth: 1.5,
             tension: 0.4,
             pointRadius: data.map((_, index) => (index === data.length - 1 ? 2.5 : 0)),
             pointHoverRadius: data.map((_, index) => (index === data.length - 1 ? 3 : 0)),
-        })),
+        }],
     }
 
     const options: ChartOptions<"line"> = {
@@ -100,16 +92,7 @@ export function GpuMetricCard({ series }: GpuMetricCardProps) {
     return (
         <div className={classes.gpuCard}>
             <div className={classes.gpuHeader}>
-                <span className={classes.gpuTitle}>GPU engines</span>
-
-                <div className={classes.gpuLegend}>
-                    {series.map(({ label, color }) => (
-                        <div className={classes.gpuLegendItem} key={label}>
-                            <span className={classes.gpuLegendDot} style={{ backgroundColor: color }} />
-                            <span>{label}</span>
-                        </div>
-                    ))}
-                </div>
+                <span className={classes.gpuTitle}>GPU utilization (max engine)</span>
             </div>
 
             <div className={classes.chartWrap}>

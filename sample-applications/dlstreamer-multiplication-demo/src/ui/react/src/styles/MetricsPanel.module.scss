@@ -98,31 +98,8 @@
 
 .gpuHeader {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     gap: 12px;
     margin-bottom: 6px;
 }
 
-.gpuLegend {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 10px;
-}
-
-.gpuLegendItem {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 10px;
-    color: #6a85a8;
-    text-transform: lowercase;
-}
-
-.gpuLegendDot {
-    width: 8px;
-    height: 2px;
-    border-radius: 999px;
-    flex-shrink: 0;
-}

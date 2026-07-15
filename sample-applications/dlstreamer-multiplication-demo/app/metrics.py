@@ -69,17 +69,30 @@ class SystemMonitor:
     def _parse_labels(labels_text: str):
         return {key: value for key, value in LABEL_PATTERN.findall(labels_text)}
 
+    @staticmethod
+    def _default_gpu_usage() -> GpuUsageSnapshot:
+        return {
+            "bcs": "N/A",
+            "ccs": "N/A",
+            "rcs": "N/A",
+            "vcs": "N/A",
+            "vecs": "N/A",
+        }
+
+    @staticmethod
+    def _aggregate_gpu_usage(gpu_usage: GpuUsageSnapshot):
+        numeric_values = [
+            float(value) for value in gpu_usage.values() if isinstance(value, (int, float))
+        ]
+        if not numeric_values:
+            return "N/A"
+        return max(numeric_values)
+
 
     def get_gpu_usage(self):
         try:
             metrics_text = self._fetch_metrics_text()
-            gpu_usage: GpuUsageSnapshot = {
-                "bcs": "N/A",
-                "ccs": "N/A",
-                "rcs": "N/A",
-                "vcs": "N/A",
-                "vecs": "N/A",
-            }
+            gpu_usage = self._default_gpu_usage()
 
             engine_aliases = {
                 "bcs": "bcs",
@@ -108,15 +121,9 @@ class SystemMonitor:
 
                 gpu_usage[engine] = float(match.group("value"))
 
-            return gpu_usage
+            return self._aggregate_gpu_usage(gpu_usage)
         except (requests.RequestException, ValueError):
-            return {
-                "bcs": "N/A",
-                "ccs": "N/A",
-                "rcs": "N/A",
-                "vcs": "N/A",
-                "vecs": "N/A",
-            }
+            return "N/A"
         
     def get_npu_usage(self):
         try:

@@ -6,13 +6,7 @@ function normalizeMetricValue(value: number | "N/A"): number | null {
 }
 
 function normalizeGpuMetrics(gpu: RawGpuMetrics) {
-  return {
-    bcs: normalizeMetricValue(gpu.bcs),
-    ccs: normalizeMetricValue(gpu.ccs),
-    rcs: normalizeMetricValue(gpu.rcs),
-    vcs: normalizeMetricValue(gpu.vcs),
-    vecs: normalizeMetricValue(gpu.vecs),
-  };
+  return normalizeMetricValue(gpu);
 }
 
 function normalizeRamMetrics(ram: RawRamMetrics) {
