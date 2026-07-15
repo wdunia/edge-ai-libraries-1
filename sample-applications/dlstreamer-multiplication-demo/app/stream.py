@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 # Timeout for HTTP requests to the pipeline server (seconds)
 REQUEST_TIMEOUT = int(os.environ.get("PIPELINE_SERVER_TIMEOUT", "30"))
+DELETE_TIMEOUT = int(os.environ.get("PIPELINE_DELETE_TIMEOUT", "8"))
 
 FULL_HD_WIDTH = 1920
 FULL_HD_HEIGHT = 1080
@@ -122,10 +123,10 @@ class Stream:
                     "inference-interval": _get_int_env(
                         "DLSPS_GPU_INFERENCE_INTERVAL", 1
                     ),
-                    "batch-size": _get_int_env("DLSPS_GPU_BATCH_SIZE", 8),
-                    "nireq": _get_int_env("DLSPS_GPU_NIREQ", 2),
+                    "batch-size": _get_int_env("DLSPS_GPU_BATCH_SIZE", 1),
+                    "nireq": _get_int_env("DLSPS_GPU_NIREQ", 1),
                     "ie-config": os.environ.get(
-                        "DLSPS_GPU_IE_CONFIG", "GPU_THROUGHPUT_STREAMS=2"
+                        "DLSPS_GPU_IE_CONFIG", "GPU_THROUGHPUT_STREAMS=1"
                     ),
                     "threshold": _get_float_env("DLSPS_GPU_THRESHOLD", 0.7),
                 }
@@ -146,8 +147,13 @@ class Stream:
         device = Stream._normalize_target_device(target_device)
         base_model_instance_id = Stream._build_model_instance_id(device)
 
-        if device != "NPU":
+        if device == "CPU":
             return base_model_instance_id
+
+        if device == "GPU":
+            if _get_bool_env("DLSPS_GPU_SHARE_MODEL_INSTANCE", False):
+                return base_model_instance_id
+            return f"{base_model_instance_id}_{stream_suffix}"
 
         if _get_bool_env("DLSPS_NPU_SHARE_MODEL_INSTANCE", False):
             return base_model_instance_id
@@ -265,7 +271,7 @@ class Stream:
                 "properties": {
                     "location": source_path,
                     "loop": True,
-                    "stop-index": 0,
+                    "stop-index": -1,
                 },
             }
         else:
@@ -352,7 +358,8 @@ class Stream:
 
     def delete_stream(self, stream_id: str) -> dict:
         url = f"{self._base_url}/pipelines/{stream_id}"
-        response = requests.delete(url, timeout=REQUEST_TIMEOUT)
+        response = requests.delete(url, timeout=DELETE_TIMEOUT)
+        response.raise_for_status()
 
         with self._lock:
             self.streaminfo.pop(stream_id, None)

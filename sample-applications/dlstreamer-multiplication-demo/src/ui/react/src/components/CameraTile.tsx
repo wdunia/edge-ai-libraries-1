@@ -60,6 +60,16 @@ export function CameraTile({ stream, onDelete }: CameraTileProps) {
                 </Group>
 
                 <Group gap="xs" wrap="nowrap">
+                    <ActionIcon
+                        size="md"
+                        variant="light"
+                        color="red"
+                        onClick={() => onDelete?.(stream)}
+                        aria-label={`Delete ${stream.name}`}
+                    >
+                        ✕
+                    </ActionIcon>
+
                     <Box
                         style={{
                             width: 8,
@@ -117,26 +127,6 @@ export function CameraTile({ stream, onDelete }: CameraTileProps) {
                         </Text>
                     </Box>
                 )}
-
-                <Group
-                    gap="xs"
-                    style={{
-                        position: "absolute",
-                        right: 8,
-                        bottom: 8,
-                        zIndex: 2,
-                    }}
-                >
-                    <ActionIcon
-                        size="md"
-                        variant="light"
-                        color="red"
-                        onClick={() => onDelete?.(stream)}
-                        aria-label={`Delete ${stream.name}`}
-                    >
-                        ✕
-                    </ActionIcon>
-                </Group>
             </Box>
         </Box>
     );

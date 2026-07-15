@@ -208,14 +208,19 @@ function App() {
   }, []);
 
   async function handleDeleteStream(stream: StreamTile) {
+    const previousStreams = streamsRef.current;
+    setStreams((previous) => previous.filter((item) => item.id !== stream.id));
+
     if (!stream.streamId) {
-      setStreams((previous) => previous.filter((item) => item.id !== stream.id));
       return;
     }
 
-    await deletePipeline(stream.streamId);
-
-    setStreams((previous) => previous.filter((item) => item.id !== stream.id));
+    try {
+      await deletePipeline(stream.streamId);
+    } catch (error) {
+      console.error(error);
+      setStreams(previousStreams);
+    }
   }
 
   const totalFps = streams.reduce((sum, stream) => sum + stream.fps, 0);
@@ -231,9 +236,13 @@ function App() {
       )
       .map((pipeline) => pipeline.id);
 
-    await deleteAllPipelines(runningPipelineIds);
-
+    const previousStreams = streamsRef.current;
     setStreams([]);
+
+    void deleteAllPipelines(runningPipelineIds).catch((error) => {
+      console.error(error);
+      setStreams(previousStreams);
+    });
   }
 
   return (
