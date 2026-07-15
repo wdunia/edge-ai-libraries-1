@@ -39,32 +39,32 @@ function App() {
     resolutionPreset: ResolutionPreset;
     inferenceInterval: number;
   }) {
-    const createdPipelines = await Promise.all(
-      Array.from({ length: data.count }, async (_, index) => {
-        const created = await createCameraPipeline(
-          data.device,
-          data.sourceUri,
-          {
-            resolutionPreset: data.resolutionPreset,
-            inferenceInterval: data.inferenceInterval,
-          },
-          index
-        );
+    const createdPipelines: StreamTile[] = [];
 
-        return {
-          id: Date.now() + index,
-          streamId: created.streamId,
-          name:
-            data.count === 1
-              ? data.name
-              : `${data.name}-${String(index + 1).padStart(2, "0")}`,
-          type: data.device,
-          fps: -1, // just an indicator to show incorrect value by default
-          streamUrl: undefined,
-          status: "QUEUED",
-        } satisfies StreamTile;
-      })
-    );
+    for (let index = 0; index < data.count; index += 1) {
+      const created = await createCameraPipeline(
+        data.device,
+        data.sourceUri,
+        {
+          resolutionPreset: data.resolutionPreset,
+          inferenceInterval: data.inferenceInterval,
+        },
+        index
+      );
+
+      createdPipelines.push({
+        id: Date.now() + index,
+        streamId: created.streamId,
+        name:
+          data.count === 1
+            ? data.name
+            : `${data.name}-${String(index + 1).padStart(2, "0")}`,
+        type: data.device,
+        fps: -1,
+        streamUrl: undefined,
+        status: "QUEUED",
+      });
+    }
 
     setStreams((previous) => [...previous, ...createdPipelines]);
   }

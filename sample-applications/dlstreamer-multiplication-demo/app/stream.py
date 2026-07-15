@@ -151,7 +151,7 @@ class Stream:
             return base_model_instance_id
 
         if device == "GPU":
-            if _get_bool_env("DLSPS_GPU_SHARE_MODEL_INSTANCE", False):
+            if _get_bool_env("DLSPS_GPU_SHARE_MODEL_INSTANCE", True):
                 return base_model_instance_id
             return f"{base_model_instance_id}_{stream_suffix}"
 
