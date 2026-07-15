@@ -12,6 +12,7 @@ import {
   getPipelineStatus,
   getStreamInfo,
   type HealthStatus,
+  type ResolutionPreset,
 } from "./api/dlStreamerApi";
 import { deleteAllPipelines } from "./api/dlStreamerApi";
 import { appConfig } from "./config/appConfig";
@@ -33,10 +34,20 @@ function App() {
     sourceUri: string;
     device: DeviceType;
     count: number;
+    resolutionPreset: ResolutionPreset;
+    inferenceInterval: number;
   }) {
     const createdPipelines = await Promise.all(
       Array.from({ length: data.count }, async (_, index) => {
-        const created = await createCameraPipeline(data.device, data.sourceUri, index);
+        const created = await createCameraPipeline(
+          data.device,
+          data.sourceUri,
+          {
+            resolutionPreset: data.resolutionPreset,
+            inferenceInterval: data.inferenceInterval,
+          },
+          index
+        );
 
         return {
           id: Date.now() + index,

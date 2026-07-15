@@ -62,10 +62,21 @@ async def get_pipeline_status():
 
 
 @app.post("/pipeline/add", tags=["Pipelines"], summary="Add a new pipeline")
-async def add_pipeline(stream_path, model_path, target_device):
+async def add_pipeline(
+    stream_path: str,
+    model_path: str,
+    target_device: str,
+    resolution_preset: str = "2/3",
+    inference_interval: int = 1,
+):
     try:
         response = await asyncio.to_thread(
-            stream.add_stream, stream_path, model_path, target_device
+            stream.add_stream,
+            stream_path,
+            model_path,
+            target_device,
+            resolution_preset,
+            inference_interval,
         )
         return JSONResponse(content={"status": "Success", "metadata": response})
     except Exception as e:

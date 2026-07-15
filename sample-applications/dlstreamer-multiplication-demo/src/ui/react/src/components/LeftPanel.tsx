@@ -1,9 +1,16 @@
 import { useState } from "react";
-import { Button, Stack, Text, TextInput } from "@mantine/core";
+import { Button, Select, Stack, Text, TextInput } from "@mantine/core";
 import { accent, bg, pipelineTypeConfig, type DeviceType } from "../styles/theme";
 import { appConfig } from "../config/appConfig";
+import type { ResolutionPreset } from "../api/dlStreamerApi";
 
 const devices: DeviceType[] = ["GPU", "NPU", "CPU"];
+const resolutionOptions: Array<{ value: ResolutionPreset; label: string }> = [
+    { value: "FULL", label: "1920x1080 (Full)" },
+    { value: "2/3", label: "1280x720 (2/3)" },
+    { value: "1/2", label: "960x540 (1/2)" },
+    { value: "1/3", label: "640x360 (1/3)" },
+];
 
 type LeftPanelProps = {
     onAddPipeline: (data: {
@@ -11,6 +18,8 @@ type LeftPanelProps = {
         sourceUri: string;
         device: DeviceType;
         count: number;
+        resolutionPreset: ResolutionPreset;
+        inferenceInterval: number;
     }) => Promise<void>;
 
     onRemoveAllPipelines: () => Promise<void>;
@@ -21,10 +30,16 @@ export function LeftPanel({ onAddPipeline, onRemoveAllPipelines }: LeftPanelProp
     const [streamUrl, setStreamUrl] = useState(appConfig.defaultStreamUrl);
     const [isAdding, setIsAdding] = useState(false);
     const [streamCount, setStreamCount] = useState("1");
+    const [resolutionPreset, setResolutionPreset] = useState<ResolutionPreset>("2/3");
+    const [inferenceInterval, setInferenceInterval] = useState("1");
     const [isRemovingAll, setIsRemovingAll] = useState(false);
 
     async function handleAddPipeline(device: DeviceType) {
         const count = Math.min(Math.max(Number(streamCount) || 1, 1), 50);
+        const parsedInferenceInterval = Math.min(
+            Math.max(Number(inferenceInterval) || 1, 1),
+            120
+        );
         setIsAdding(true);
 
         try {
@@ -33,6 +48,8 @@ export function LeftPanel({ onAddPipeline, onRemoveAllPipelines }: LeftPanelProp
                 sourceUri: streamUrl,
                 device,
                 count: count,
+                resolutionPreset,
+                inferenceInterval: parsedInferenceInterval,
             });
         } finally {
             setIsAdding(false);
@@ -78,6 +95,20 @@ export function LeftPanel({ onAddPipeline, onRemoveAllPipelines }: LeftPanelProp
                     value={streamCount}
                     onChange={setStreamCount}
                 />
+
+                <StyledSelect
+                    label="Inference resolution"
+                    data={resolutionOptions}
+                    value={resolutionPreset}
+                    onChange={(value) => setResolutionPreset((value as ResolutionPreset) ?? "2/3")}
+                />
+
+                <StyledTextInput
+                    label="Inference interval (every Nth frame)"
+                    placeholder="1"
+                    value={inferenceInterval}
+                    onChange={setInferenceInterval}
+                />
                 {devices.map((device) => (
                     <PipelineButton
                         key={device}
@@ -114,6 +145,25 @@ export function LeftPanel({ onAddPipeline, onRemoveAllPipelines }: LeftPanelProp
     );
 }
 
+function inputStyles() {
+    return {
+        label: {
+            marginBottom: 5,
+            fontSize: 10,
+            textTransform: "uppercase" as const,
+            letterSpacing: "0.13em",
+            color: "rgba(255,255,255,0.5)",
+        },
+        input: {
+            borderRadius: 4,
+            border: `1px solid ${bg.border}`,
+            background: bg.tile,
+            color: "white",
+            fontSize: 13,
+        },
+    };
+}
+
 function StyledTextInput({
     label,
     placeholder,
@@ -131,22 +181,30 @@ function StyledTextInput({
             placeholder={placeholder}
             value={value}
             onChange={(event) => onChange(event.currentTarget.value)}
-            styles={{
-                label: {
-                    marginBottom: 5,
-                    fontSize: 10,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.13em",
-                    color: "rgba(255,255,255,0.5)",
-                },
-                input: {
-                    borderRadius: 4,
-                    border: `1px solid ${bg.border}`,
-                    background: bg.tile,
-                    color: "white",
-                    fontSize: 13,
-                },
-            }}
+            styles={inputStyles()}
+        />
+    );
+}
+
+function StyledSelect({
+    label,
+    data,
+    value,
+    onChange,
+}: {
+    label: string;
+    data: Array<{ value: string; label: string }>;
+    value: string;
+    onChange: (value: string | null) => void;
+}) {
+    return (
+        <Select
+            label={label}
+            data={data}
+            value={value}
+            onChange={onChange}
+            allowDeselect={false}
+            styles={inputStyles()}
         />
     );
 }

@@ -133,6 +133,16 @@ export type CreatedPipeline = {
   streamId: string;
   peerId: string;
   streamUrl: string;
+  resolutionPreset: ResolutionPreset;
+  resolution: string;
+  inferenceInterval: number;
+};
+
+export type ResolutionPreset = "FULL" | "2/3" | "1/2" | "1/3";
+
+export type CreatePipelineOptions = {
+  resolutionPreset: ResolutionPreset;
+  inferenceInterval: number;
 };
 
 export type AddPipelineResponse = {
@@ -141,6 +151,9 @@ export type AddPipelineResponse = {
     stream_id: string;
     peer_id: string;
     stream_url: string;
+    resolution_preset: ResolutionPreset;
+    resolution: string;
+    inference_interval: string;
   };
 };
 
@@ -154,12 +167,15 @@ const palletDefectDetectionModelPath = appConfig.modelPath;
 export async function createCameraPipeline(
   device: DeviceType,
   sourceUri: string,
+  options: CreatePipelineOptions,
   index = 0
 ): Promise<CreatedPipeline> {
   const params = new URLSearchParams({
     stream_path: sourceUri,
     model_path: palletDefectDetectionModelPath,
     target_device: device,
+    resolution_preset: options.resolutionPreset,
+    inference_interval: String(options.inferenceInterval),
   });
   index = index
   const response = await fetch(
@@ -190,11 +206,17 @@ export async function createCameraPipeline(
   const streamId = data.metadata.stream_id.trim();
   const peerId = data.metadata.peer_id.trim();
   const streamUrl = data.metadata.stream_url.trim();
+  const resolutionPreset = data.metadata.resolution_preset;
+  const resolution = data.metadata.resolution.trim();
+  const inferenceInterval = Number(data.metadata.inference_interval);
 
   return {
     streamId,
     peerId,
     streamUrl,
+    resolutionPreset,
+    resolution,
+    inferenceInterval,
   };
 }
 

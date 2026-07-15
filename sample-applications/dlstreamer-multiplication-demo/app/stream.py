@@ -12,6 +12,16 @@ logger = logging.getLogger(__name__)
 # Timeout for HTTP requests to the pipeline server (seconds)
 REQUEST_TIMEOUT = int(os.environ.get("PIPELINE_SERVER_TIMEOUT", "30"))
 
+FULL_HD_WIDTH = 1920
+FULL_HD_HEIGHT = 1080
+
+RESOLUTION_PRESETS: dict[str, tuple[int, int]] = {
+    "FULL": (FULL_HD_WIDTH, FULL_HD_HEIGHT),
+    "2/3": (1280, 720),
+    "1/2": (960, 540),
+    "1/3": (640, 360),
+}
+
 
 def _get_int_env(name: str, default: int) -> int:
     value = os.environ.get(name)
@@ -35,6 +45,10 @@ def _get_float_env(name: str, default: float) -> float:
     except ValueError:
         logger.warning("Invalid float for %s=%r, using default %s", name, value, default)
         return default
+
+
+def _clamp_int(value: int, minimum: int, maximum: int) -> int:
+    return max(minimum, min(value, maximum))
 
 
 class Stream:
@@ -128,6 +142,45 @@ class Stream:
 
         return detection_properties
 
+    @staticmethod
+    def _resolve_resolution(resolution_preset: str | None) -> tuple[str, int, int]:
+        preset = (resolution_preset or "2/3").strip().upper()
+
+        aliases = {
+            "FULL": "FULL",
+            "2/3": "2/3",
+            "1/2": "1/2",
+            "1/3": "1/3",
+            "1920X1080": "FULL",
+            "1280X720": "2/3",
+            "960X540": "1/2",
+            "640X360": "1/3",
+        }
+
+        normalized = aliases.get(preset)
+        if not normalized:
+            raise ValueError(
+                "Unsupported resolution preset. Allowed values: Full, 2/3, 1/2, 1/3"
+            )
+
+        width, height = RESOLUTION_PRESETS[normalized]
+        return normalized, width, height
+
+    @staticmethod
+    def _resolve_inference_interval(
+        target_device: str, inference_interval: int | None
+    ) -> int:
+        device = Stream._normalize_target_device(target_device)
+
+        if inference_interval is None:
+            if device == "GPU":
+                return _get_int_env("DLSPS_GPU_INFERENCE_INTERVAL", 1)
+            if device == "NPU":
+                return _get_int_env("DLSPS_NPU_INFERENCE_INTERVAL", 1)
+            return _get_int_env("DLSPS_CPU_INFERENCE_INTERVAL", 1)
+
+        return _clamp_int(int(inference_interval), 1, 120)
+
     def _load_stream_info_from_pipeline(self, stream_id: str) -> dict[str, str] | None:
         url = f"{self._base_url}/pipelines/{stream_id}"
 
@@ -170,13 +223,26 @@ class Stream:
 
         return stream_info
 
-    def add_stream(self, stream_path: str, model_path: str, target_device: str) -> dict[str, str]:
+    def add_stream(
+        self,
+        stream_path: str,
+        model_path: str,
+        target_device: str,
+        resolution_preset: str | None = None,
+        inference_interval: int | None = None,
+    ) -> dict[str, str]:
         hex_v = os.urandom(8).hex()
         peer_id = f"pallet_defect_detection_{hex_v}"
         target_device = self._normalize_target_device(target_device)
         source_scheme = urlparse(stream_path).scheme.lower()
         is_file_source = source_scheme == "file"
         pipeline_version = self._select_pipeline_version(target_device, is_file_source)
+        resolved_preset, input_width, input_height = self._resolve_resolution(
+            resolution_preset
+        )
+        resolved_inference_interval = self._resolve_inference_interval(
+            target_device, inference_interval
+        )
 
         source: dict[str, Any]
         if is_file_source:
@@ -210,16 +276,24 @@ class Stream:
                 },
             },
             "parameters": {
+                "input_width": input_width,
+                "input_height": input_height,
                 "detection-properties": self._build_detection_properties(
                     model_path, target_device
                 )
             },
         }
 
+        payload["parameters"]["detection-properties"][
+            "inference-interval"
+        ] = resolved_inference_interval
+
         url = f"{self._base_url}/pipelines/user_defined_pipelines/{pipeline_version}"
         logger.info(
             f"Creating pipeline: version={pipeline_version}, "
-            f"device={target_device}, source={stream_path}"
+            f"device={target_device}, source={stream_path}, "
+            f"resolution={resolved_preset} ({input_width}x{input_height}), "
+            f"inference_interval={resolved_inference_interval}"
         )
 
         response = requests.post(
@@ -240,6 +314,9 @@ class Stream:
             "stream_id": stream_id,
             "peer_id": peer_id,
             "stream_url": self._build_stream_url(peer_id),
+            "resolution_preset": resolved_preset,
+            "resolution": f"{input_width}x{input_height}",
+            "inference_interval": str(resolved_inference_interval),
         }
 
     def view_metadata(self, file_path: str) -> str:
