@@ -60,16 +60,6 @@ export function CameraTile({ stream, onDelete }: CameraTileProps) {
                 </Group>
 
                 <Group gap="xs" wrap="nowrap">
-                    <ActionIcon
-                        size="md"
-                        variant="light"
-                        color="red"
-                        onClick={() => onDelete?.(stream)}
-                        aria-label={`Delete ${stream.name}`}
-                    >
-                        ✕
-                    </ActionIcon>
-
                     <Box
                         style={{
                             width: 8,
@@ -87,6 +77,16 @@ export function CameraTile({ stream, onDelete }: CameraTileProps) {
                     <Text size="xs" fw={700} c={accent.blue}>
                         {stream.fps} FPS
                     </Text>
+
+                    <ActionIcon
+                        size="md"
+                        variant="light"
+                        color="red"
+                        onClick={() => onDelete?.(stream)}
+                        aria-label={`Delete ${stream.name}`}
+                    >
+                        ✕
+                    </ActionIcon>
                 </Group>
             </Group>
 
@@ -123,7 +123,11 @@ export function CameraTile({ stream, onDelete }: CameraTileProps) {
                         <Text size="xs" fw={700} c="dimmed" lts="0.2em">
                             {stream.status === "QUEUED"
                                 ? "INITIALIZING PIPELINE..."
-                                : "WAITING FOR VIDEO CONNECTION..."}
+                                : stream.status === "ERROR"
+                                    ? "PIPELINE ERROR"
+                                    : stream.status === "COMPLETED"
+                                        ? "PIPELINE COMPLETED"
+                                        : "WAITING FOR VIDEO CONNECTION..."}
                         </Text>
                     </Box>
                 )}

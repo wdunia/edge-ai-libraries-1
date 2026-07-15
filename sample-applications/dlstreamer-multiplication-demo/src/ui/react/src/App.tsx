@@ -159,6 +159,10 @@ function App() {
               ...stream,
               fps: Math.round(status.frame_fps ?? status.avg_fps ?? 0),
               status: status.state,
+              streamUrl:
+                status.state === "RUNNING" || status.state === "QUEUED"
+                  ? stream.streamUrl
+                  : undefined,
             };
           })
         );
