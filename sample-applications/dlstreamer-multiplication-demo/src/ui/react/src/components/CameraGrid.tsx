@@ -5,14 +5,12 @@ type CameraGridProps = {
     layoutMode: 1 | 4 | 9 | 16 | 25 | 36;
     streams: StreamTile[];
     onDeleteStream?: (stream: StreamTile) => void;
-    onCloneStream?: (stream: StreamTile) => void;
 };
 
 export function CameraGrid({
     layoutMode,
     streams,
     onDeleteStream,
-    onCloneStream,
 }: CameraGridProps) {
     const columns = Math.sqrt(layoutMode);
     const rows = Math.sqrt(layoutMode);
@@ -38,7 +36,6 @@ export function CameraGrid({
                         key={stream.id}
                         stream={stream}
                         onDelete={onDeleteStream}
-                        onClone={onCloneStream}
                     />
                 ))}
             </SimpleGrid>

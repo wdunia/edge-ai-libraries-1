@@ -14,10 +14,9 @@ export type StreamTile = {
 type CameraTileProps = {
     stream: StreamTile;
     onDelete?: (stream: StreamTile) => void;
-    onClone?: (stream: StreamTile) => void;
 };
 
-export function CameraTile({ stream, onDelete, onClone }: CameraTileProps) {
+export function CameraTile({ stream, onDelete }: CameraTileProps) {
     const typeStyle = pipelineTypeConfig[stream.type];
 
     return (
@@ -112,7 +111,9 @@ export function CameraTile({ stream, onDelete, onClone }: CameraTileProps) {
                         }}
                     >
                         <Text size="xs" fw={700} c="dimmed" lts="0.2em">
-                            {stream.status === "QUEUED" ? "STREAM QUEUED" : "STREAM NOT READY"}
+                            {stream.status === "QUEUED"
+                                ? "INITIALIZING PIPELINE..."
+                                : "WAITING FOR VIDEO CONNECTION..."}
                         </Text>
                     </Box>
                 )}
@@ -134,16 +135,6 @@ export function CameraTile({ stream, onDelete, onClone }: CameraTileProps) {
                         aria-label={`Delete ${stream.name}`}
                     >
                         ✕
-                    </ActionIcon>
-
-                    <ActionIcon
-                        size="md"
-                        variant="light"
-                        color="green"
-                        onClick={() => onClone?.(stream)}
-                        aria-label={`Clone ${stream.name}`}
-                    >
-                        ⧉
                     </ActionIcon>
                 </Group>
             </Box>

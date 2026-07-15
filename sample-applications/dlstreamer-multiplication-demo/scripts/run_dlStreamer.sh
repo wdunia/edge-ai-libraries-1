@@ -14,7 +14,8 @@ UI_ENV_FILE="${UI_DIR}/.env"
 COMPOSE_FILE="${DOCKER_DIR}/docker-compose.images.yml"
 
 MAX_WAIT_SECONDS="${MAX_WAIT_SECONDS:-600}"
-FORCE_RESTART=false
+FORCE_RESTART=true
+FORCE_DOWN=false
 AUTO_OPEN_BROWSER=true
 SOURCE_MODE="${DLSPS_SOURCE_MODE:-file}"
 DEFAULT_STREAM_URL="${DEFAULT_RTSP_SOURCE_URL:-rtsp://host.docker.internal:8554/camera0}"
@@ -43,7 +44,9 @@ Starts the demo stack from prebuilt images. On first run it also generates
 docker/.env and builds the two custom demo images if they are missing.
 
 Options:
-  --force-restart, -f   Stop existing demo containers first.
+  --force-restart, -f   Restart existing demo containers first (default behavior).
+  --no-force-restart    Skip restarting existing demo containers before startup.
+  --compose-down        Run docker compose down --remove-orphans before startup.
   --open-browser        Force opening the browser after services are up.
   --no-open-browser     Skip opening the browser automatically.
   --source-mode         Default source shown in the UI: file (default) or rtsp.
@@ -56,6 +59,12 @@ parse_args() {
         case "$1" in
             --force-restart|-f)
                 FORCE_RESTART=true
+                ;;
+            --no-force-restart)
+                FORCE_RESTART=false
+                ;;
+            --compose-down)
+                FORCE_DOWN=true
                 ;;
             --open-browser)
                 AUTO_OPEN_BROWSER=true
@@ -145,8 +154,10 @@ wait_for_http_200() {
 start_services() {
     local compose_cmd=(docker compose --env-file "${DOCKER_ENV_FILE}" -f "${COMPOSE_FILE}")
 
-    if [[ "$FORCE_RESTART" == "true" ]]; then
+    if [[ "$FORCE_DOWN" == "true" ]]; then
         "${compose_cmd[@]}" down --remove-orphans || true
+    elif [[ "$FORCE_RESTART" == "true" ]]; then
+        "${compose_cmd[@]}" stop || true
     fi
 
     "${compose_cmd[@]}" up -d

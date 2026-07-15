@@ -60,8 +60,8 @@ function App() {
               : `${data.name}-${String(index + 1).padStart(2, "0")}`,
           type: data.device,
           fps: -1, // just an indicator to show incorrect value by default
-          streamUrl: created.streamUrl,
-          status: "RUNNING",
+          streamUrl: undefined,
+          status: "QUEUED",
         } satisfies StreamTile;
       })
     );
@@ -458,7 +458,7 @@ function App() {
             flex: "1 1 0",
             minHeight: 0,
             display: "grid",
-            gridTemplateRows: "minmax(0, 1fr) 350px",
+            gridTemplateRows: "minmax(0, 1fr) auto",
             gap: "var(--mantine-spacing-md)",
           }}
         >
@@ -486,7 +486,7 @@ function App() {
           </Box>
 
           {/* Metrics Grid */}
-          <Paper p="md" radius="md" bg={bg.panel} style={{ minHeight: 0 }}>
+          <Paper p="md" radius="md" bg={bg.panel}>
             <MetricsPanel />
           </Paper>
         </Box>
