@@ -51,6 +51,14 @@ def _clamp_int(value: int, minimum: int, maximum: int) -> int:
     return max(minimum, min(value, maximum))
 
 
+def _get_bool_env(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 class Stream:
     def __init__(self):
         # Internal Docker hostname for backend-to-backend calls (same docker network)
@@ -128,19 +136,23 @@ class Stream:
                     "pre-process-backend": os.environ.get(
                         "DLSPS_NPU_PRE_PROCESS_BACKEND", "va"
                     ),
-                    "inference-region": os.environ.get(
-                        "DLSPS_NPU_INFERENCE_REGION", "full-frame"
-                    ),
-                    "inference-interval": _get_int_env(
-                        "DLSPS_NPU_INFERENCE_INTERVAL", 1
-                    ),
-                    "batch-size": _get_int_env("DLSPS_NPU_BATCH_SIZE", 1),
-                    "nireq": _get_int_env("DLSPS_NPU_NIREQ", 4),
-                    "threshold": _get_float_env("DLSPS_NPU_THRESHOLD", 0.7),
                 }
             )
 
         return detection_properties
+
+    @staticmethod
+    def _resolve_model_instance_id(target_device: str, stream_suffix: str) -> str | None:
+        device = Stream._normalize_target_device(target_device)
+        base_model_instance_id = Stream._build_model_instance_id(device)
+
+        if device != "NPU":
+            return base_model_instance_id
+
+        if _get_bool_env("DLSPS_NPU_SHARE_MODEL_INSTANCE", False):
+            return base_model_instance_id
+
+        return f"{base_model_instance_id}_{stream_suffix}"
 
     @staticmethod
     def _resolve_resolution(resolution_preset: str | None) -> tuple[str, int, int]:
@@ -284,16 +296,24 @@ class Stream:
             },
         }
 
-        payload["parameters"]["detection-properties"][
-            "inference-interval"
-        ] = resolved_inference_interval
+        resolved_model_instance_id = self._resolve_model_instance_id(target_device, hex_v)
+        if resolved_model_instance_id:
+            payload["parameters"]["detection-properties"][
+                "model-instance-id"
+            ] = resolved_model_instance_id
+
+        if target_device != "NPU":
+            payload["parameters"]["detection-properties"][
+                "inference-interval"
+            ] = resolved_inference_interval
 
         url = f"{self._base_url}/pipelines/user_defined_pipelines/{pipeline_version}"
         logger.info(
             f"Creating pipeline: version={pipeline_version}, "
             f"device={target_device}, source={stream_path}, "
             f"resolution={resolved_preset} ({input_width}x{input_height}), "
-            f"inference_interval={resolved_inference_interval}"
+            f"inference_interval={resolved_inference_interval}, "
+            f"model_instance_id={resolved_model_instance_id}"
         )
 
         response = requests.post(

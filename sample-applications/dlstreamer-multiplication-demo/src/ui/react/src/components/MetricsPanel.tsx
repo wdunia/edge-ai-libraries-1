@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { Box, SimpleGrid, Stack, Text } from "@mantine/core";
+import { Box, SimpleGrid, Text } from "@mantine/core";
 import { subscribeToMetrics } from "../api/metricsApi";
 import type { MetricsSnapshot } from "../types/metrics";
 import { accent, bg } from "../styles/theme";
-import { GpuMetricCard } from "./GpuMetricCard";
 import { getPipelineStatus } from "../api/pipelineStatusApi";
 
 
@@ -177,18 +176,14 @@ export function MetricsPanel() {
             : "N/A";
 
     return (
-        <Stack gap="xs" style={{ height: "100%", minHeight: 0 }}>
+        <Box style={{ height: "100%", minHeight: 0 }}>
             <SimpleGrid cols={4} spacing="md">
                 <MetricTile title="GPU" value={gpuValue} color={accent.green} values={history.gpu} />
                 <MetricTile title="NPU" value={npuValue} color={accent.purple} values={history.npu} />
                 <MetricTile title="CPU" value={cpuValue} color={accent.blue} values={history.cpu} />
                 <MetricTile title="FPS" value={fpsValue} color={accent.green} values={history.fps} />
             </SimpleGrid>
-
-            <Box style={{ flex: 1, minHeight: 0 }}>
-                <GpuMetricCard data={history.gpu} color={accent.green} />
-            </Box>
-        </Stack>
+        </Box>
     );
 }
 
