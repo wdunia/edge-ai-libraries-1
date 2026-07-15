@@ -13,6 +13,30 @@ logger = logging.getLogger(__name__)
 REQUEST_TIMEOUT = int(os.environ.get("PIPELINE_SERVER_TIMEOUT", "30"))
 
 
+def _get_int_env(name: str, default: int) -> int:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+
+    try:
+        return int(value)
+    except ValueError:
+        logger.warning("Invalid integer for %s=%r, using default %s", name, value, default)
+        return default
+
+
+def _get_float_env(name: str, default: float) -> float:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+
+    try:
+        return float(value)
+    except ValueError:
+        logger.warning("Invalid float for %s=%r, using default %s", name, value, default)
+        return default
+
+
 class Stream:
     def __init__(self):
         # Internal Docker hostname for backend-to-backend calls (same docker network)
@@ -34,6 +58,75 @@ class Stream:
     @staticmethod
     def _build_model_instance_id(target_device: str) -> str:
         return f"pallet_defect_detection_{target_device.lower()}_inst0"
+
+    @staticmethod
+    def _normalize_target_device(target_device: str) -> str:
+        return (target_device or "CPU").upper()
+
+    @staticmethod
+    def _select_pipeline_version(target_device: str, is_file_source: bool) -> str:
+        device = Stream._normalize_target_device(target_device)
+
+        if is_file_source and device == "GPU":
+            return "pallet_defect_detection_file_loop_gpu"
+        if is_file_source and device == "NPU":
+            return "pallet_defect_detection_file_loop_npu"
+        if is_file_source:
+            return "pallet_defect_detection_file_loop"
+        if device == "GPU":
+            return "pallet_defect_detection_gpu"
+        if device == "NPU":
+            return "pallet_defect_detection_npu"
+        return "pallet_defect_detection"
+
+    @staticmethod
+    def _build_detection_properties(model_path: str, target_device: str) -> dict[str, Any]:
+        device = Stream._normalize_target_device(target_device)
+        detection_properties: dict[str, Any] = {
+            "model": model_path,
+            "device": device,
+            "model-instance-id": Stream._build_model_instance_id(device),
+        }
+
+        if device == "GPU":
+            detection_properties.update(
+                {
+                    "pre-process-backend": os.environ.get(
+                        "DLSPS_GPU_PRE_PROCESS_BACKEND", "va-surface-sharing"
+                    ),
+                    "inference-region": os.environ.get(
+                        "DLSPS_GPU_INFERENCE_REGION", "full-frame"
+                    ),
+                    "inference-interval": _get_int_env(
+                        "DLSPS_GPU_INFERENCE_INTERVAL", 1
+                    ),
+                    "batch-size": _get_int_env("DLSPS_GPU_BATCH_SIZE", 8),
+                    "nireq": _get_int_env("DLSPS_GPU_NIREQ", 2),
+                    "ie-config": os.environ.get(
+                        "DLSPS_GPU_IE_CONFIG", "GPU_THROUGHPUT_STREAMS=2"
+                    ),
+                    "threshold": _get_float_env("DLSPS_GPU_THRESHOLD", 0.7),
+                }
+            )
+        elif device == "NPU":
+            detection_properties.update(
+                {
+                    "pre-process-backend": os.environ.get(
+                        "DLSPS_NPU_PRE_PROCESS_BACKEND", "va"
+                    ),
+                    "inference-region": os.environ.get(
+                        "DLSPS_NPU_INFERENCE_REGION", "full-frame"
+                    ),
+                    "inference-interval": _get_int_env(
+                        "DLSPS_NPU_INFERENCE_INTERVAL", 1
+                    ),
+                    "batch-size": _get_int_env("DLSPS_NPU_BATCH_SIZE", 1),
+                    "nireq": _get_int_env("DLSPS_NPU_NIREQ", 4),
+                    "threshold": _get_float_env("DLSPS_NPU_THRESHOLD", 0.7),
+                }
+            )
+
+        return detection_properties
 
     def _load_stream_info_from_pipeline(self, stream_id: str) -> dict[str, str] | None:
         url = f"{self._base_url}/pipelines/{stream_id}"
@@ -80,18 +173,10 @@ class Stream:
     def add_stream(self, stream_path: str, model_path: str, target_device: str) -> dict[str, str]:
         hex_v = os.urandom(8).hex()
         peer_id = f"pallet_defect_detection_{hex_v}"
+        target_device = self._normalize_target_device(target_device)
         source_scheme = urlparse(stream_path).scheme.lower()
         is_file_source = source_scheme == "file"
-        is_gpu_target = target_device.upper() == "GPU"
-
-        if is_file_source and is_gpu_target:
-            pipeline_version = "pallet_defect_detection_file_loop_gpu"
-        elif is_file_source:
-            pipeline_version = "pallet_defect_detection_file_loop"
-        elif is_gpu_target:
-            pipeline_version = "pallet_defect_detection_gpu"
-        else:
-            pipeline_version = "pallet_defect_detection"
+        pipeline_version = self._select_pipeline_version(target_device, is_file_source)
 
         source: dict[str, Any]
         if is_file_source:
@@ -125,11 +210,9 @@ class Stream:
                 },
             },
             "parameters": {
-                "detection-properties": {
-                    "model": model_path,
-                    "device": target_device,
-                    "model-instance-id": self._build_model_instance_id(target_device),
-                }
+                "detection-properties": self._build_detection_properties(
+                    model_path, target_device
+                )
             },
         }
 
