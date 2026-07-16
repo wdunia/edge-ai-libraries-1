@@ -21,26 +21,6 @@ import { appConfig } from "./config/appConfig";
 
 type LayoutMode = "auto" | 1 | 2 | 3 | 4 | 5 | 6;
 
-function getAspectRatioFromResolution(resolution: string | undefined): number | undefined {
-  if (!resolution) {
-    return undefined;
-  }
-
-  const match = resolution.match(/^(\d+)x(\d+)$/i);
-  if (!match) {
-    return undefined;
-  }
-
-  const width = Number(match[1]);
-  const height = Number(match[2]);
-
-  if (width <= 0 || height <= 0) {
-    return undefined;
-  }
-
-  return width / height;
-}
-
 
 const layoutModes: LayoutMode[] = ["auto", 1, 2, 3, 4, 5, 6];
 
@@ -102,7 +82,6 @@ function App() {
         fps: -1,
         streamUrl: pipeline.streamUrl,
         status: "QUEUED",
-        aspectRatio: getAspectRatioFromResolution(pipeline.resolution),
       });
     });
 
