@@ -9,13 +9,36 @@ import {
 
 const GRID_GAP_PX = 16;
 
+function getGridMetrics({
+    columns,
+    streamCount,
+    containerWidth,
+}: {
+    columns: number;
+    streamCount: number;
+    containerWidth: number;
+}) {
+    const rows = Math.ceil(streamCount / columns);
+    const tileWidth =
+        (containerWidth - GRID_GAP_PX * Math.max(columns - 1, 0)) / columns;
+    const videoHeight = tileWidth / STREAM_PREVIEW_ASPECT_RATIO;
+    const tileHeight = CAMERA_TILE_CHROME_HEIGHT_PX + videoHeight;
+    const gridHeight = rows * tileHeight + GRID_GAP_PX * Math.max(rows - 1, 0);
+
+    return {
+        rows,
+        tileWidth,
+        tileHeight,
+        videoHeight,
+        gridHeight,
+    };
+}
+
 function getAutoColumns({
-    preferredColumns,
     streamCount,
     containerWidth,
     containerHeight,
 }: {
-    preferredColumns: number;
     streamCount: number;
     containerWidth: number;
     containerHeight: number;
@@ -24,40 +47,70 @@ function getAutoColumns({
         return Math.max(streamCount, 1);
     }
 
-    const safePreferredColumns = Math.min(
-        Math.max(Math.round(preferredColumns), 1),
-        streamCount
-    );
+    const maxColumns = Math.min(streamCount, 6);
 
     if (containerWidth <= 0 || containerHeight <= 0) {
-        return safePreferredColumns;
+        return Math.min(streamCount, 3);
     }
 
-    for (let columns = safePreferredColumns; columns <= streamCount; columns += 1) {
-        const rows = Math.ceil(streamCount / columns);
-        const tileWidth =
-            (containerWidth - GRID_GAP_PX * Math.max(columns - 1, 0)) / columns;
+    let bestFit: {
+        columns: number;
+        videoArea: number;
+        overflow: number;
+    } | null = null;
+    let bestOverflow: {
+        columns: number;
+        overflow: number;
+        videoArea: number;
+    } | null = null;
 
-        if (tileWidth <= 0) {
+    for (let columns = 1; columns <= maxColumns; columns += 1) {
+        const metrics = getGridMetrics({
+            columns,
+            streamCount,
+            containerWidth,
+        });
+
+        if (metrics.tileWidth <= 0) {
             continue;
         }
 
-        const tileHeight =
-            CAMERA_TILE_CHROME_HEIGHT_PX +
-            tileWidth / STREAM_PREVIEW_ASPECT_RATIO;
-        const gridHeight =
-            rows * tileHeight + GRID_GAP_PX * Math.max(rows - 1, 0);
+        const overflow = Math.max(metrics.gridHeight - containerHeight, 0);
+        const videoArea = metrics.tileWidth * metrics.videoHeight;
 
-        if (gridHeight <= containerHeight) {
-            return columns;
+        if (overflow === 0) {
+            if (
+                !bestFit ||
+                videoArea > bestFit.videoArea ||
+                (videoArea === bestFit.videoArea && columns < bestFit.columns)
+            ) {
+                bestFit = {
+                    columns,
+                    videoArea,
+                    overflow,
+                };
+            }
+            continue;
+        }
+
+        if (
+            !bestOverflow ||
+            overflow < bestOverflow.overflow ||
+            (overflow === bestOverflow.overflow && videoArea > bestOverflow.videoArea)
+        ) {
+            bestOverflow = {
+                columns,
+                overflow,
+                videoArea,
+            };
         }
     }
 
-    return streamCount;
+    return bestFit?.columns ?? bestOverflow?.columns ?? Math.min(streamCount, 3);
 }
 
 type CameraGridProps = {
-    layoutMode: 1 | 2 | 3 | 4 | 5 | 6;
+    layoutMode: "auto" | 1 | 2 | 3 | 4 | 5 | 6;
     streams: StreamTile[];
     onDeleteStream?: (stream: StreamTile) => void;
 };
@@ -68,12 +121,15 @@ export function CameraGrid({
     onDeleteStream,
 }: CameraGridProps) {
     const { ref, width, height } = useElementSize();
-    const columns = getAutoColumns({
-        preferredColumns: layoutMode,
-        streamCount: streams.length,
-        containerWidth: width,
-        containerHeight: height,
-    });
+    const streamCount = streams.length;
+    const columns =
+        layoutMode === "auto"
+            ? getAutoColumns({
+                streamCount,
+                containerWidth: width,
+                containerHeight: height,
+            })
+            : Math.min(layoutMode, Math.max(streamCount, 1));
 
     return (
         <Box

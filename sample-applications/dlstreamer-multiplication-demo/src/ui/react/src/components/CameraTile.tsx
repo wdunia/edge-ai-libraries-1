@@ -12,6 +12,7 @@ export type StreamTile = {
     fps: number;
     streamUrl?: string;
     status?: string;
+    aspectRatio?: number;
 };
 
 type CameraTileProps = {
@@ -21,6 +22,7 @@ type CameraTileProps = {
 
 export function CameraTile({ stream, onDelete }: CameraTileProps) {
     const typeStyle = pipelineTypeConfig[stream.type];
+    const previewAspectRatio = stream.aspectRatio ?? STREAM_PREVIEW_ASPECT_RATIO;
 
     return (
         <Box
@@ -103,10 +105,11 @@ export function CameraTile({ stream, onDelete }: CameraTileProps) {
                 <Box
                     style={{
                         width: "100%",
-                        aspectRatio: "16 / 9",
+                        aspectRatio: previewAspectRatio,
                         background: "#000",
                         position: "relative",
                         overflow: "hidden",
+                        minWidth: 0,
                     }}
                 >
                     {stream.streamUrl ? (
@@ -118,8 +121,11 @@ export function CameraTile({ stream, onDelete }: CameraTileProps) {
                                 height: "100%",
                                 border: "none",
                                 display: "block",
+                                minWidth: 0,
+                                minHeight: 0,
                             }}
                             allow="autoplay; fullscreen"
+                            scrolling="no"
                         />
                     ) : (
                         <Box

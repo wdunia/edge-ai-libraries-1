@@ -19,15 +19,35 @@ import { deleteAllPipelines } from "./api/dlStreamerApi";
 import { subscribeToMetrics } from "./api/metricsApi";
 import { appConfig } from "./config/appConfig";
 
-type LayoutMode = 1 | 2 | 3 | 4 | 5 | 6;
+type LayoutMode = "auto" | 1 | 2 | 3 | 4 | 5 | 6;
+
+function getAspectRatioFromResolution(resolution: string | undefined): number | undefined {
+  if (!resolution) {
+    return undefined;
+  }
+
+  const match = resolution.match(/^(\d+)x(\d+)$/i);
+  if (!match) {
+    return undefined;
+  }
+
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+
+  if (width <= 0 || height <= 0) {
+    return undefined;
+  }
+
+  return width / height;
+}
 
 
-const layoutModes: LayoutMode[] = [1, 2, 3, 4, 5, 6];
+const layoutModes: LayoutMode[] = ["auto", 1, 2, 3, 4, 5, 6];
 
 function App() {
 
   const [health, setHealth] = useState<HealthStatus | null>(null);
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>(3);
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("auto");
   const [streams, setStreams] = useState<StreamTile[]>([]);
   const [hostRamSummary, setHostRamSummary] = useState<string>("N/A");
   const streamsRef = useRef<StreamTile[]>([]);
@@ -82,6 +102,7 @@ function App() {
         fps: -1,
         streamUrl: pipeline.streamUrl,
         status: "QUEUED",
+        aspectRatio: getAspectRatioFromResolution(pipeline.resolution),
       });
     });
 
@@ -410,13 +431,13 @@ function App() {
             >
               <Group gap="sm" wrap="nowrap">
                   <Text size="xs" fw={700} c="dimmed" tt="uppercase" lts="0.18em">
-                  Columns
+                  Layout
                 </Text>
 
                 <Group gap={8} wrap="nowrap">
                   {layoutModes.map((mode) => (
                     <Button
-                      key={mode}
+                      key={String(mode)}
                       size="xs"
                       variant={layoutMode === mode ? "filled" : "outline"}
                       color="blue"
@@ -430,7 +451,7 @@ function App() {
                         },
                       }}
                     >
-                      {mode}
+                      {mode === "auto" ? "Auto" : mode}
                     </Button>
                   ))}
                 </Group>
