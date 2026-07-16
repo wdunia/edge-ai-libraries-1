@@ -64,6 +64,14 @@ def _get_bool_env(name: str, default: bool) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _get_optional_bool_env(name: str) -> bool | None:
+    value = os.environ.get(name)
+    if value is None:
+        return None
+
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 class Stream:
     def __init__(self):
         # Internal Docker hostname for backend-to-backend calls (same docker network)
@@ -149,19 +157,37 @@ class Stream:
         return detection_properties
 
     @staticmethod
-    def _resolve_model_instance_id(target_device: str, stream_suffix: str) -> str | None:
+    def _resolve_model_sharing(
+        target_device: str, model_sharing: bool | None = None
+    ) -> bool:
+        device = Stream._normalize_target_device(target_device)
+
+        if device == "CPU":
+            return False
+
+        if model_sharing is not None:
+            return model_sharing
+
+        global_model_sharing = _get_optional_bool_env("DLSPS_SHARE_MODEL_INSTANCE")
+        if global_model_sharing is not None:
+            return global_model_sharing
+
+        if device == "GPU":
+            return _get_bool_env("DLSPS_GPU_SHARE_MODEL_INSTANCE", False)
+
+        return _get_bool_env("DLSPS_NPU_SHARE_MODEL_INSTANCE", False)
+
+    @staticmethod
+    def _resolve_model_instance_id(
+        target_device: str, stream_suffix: str, model_sharing: bool | None = None
+    ) -> str | None:
         device = Stream._normalize_target_device(target_device)
         base_model_instance_id = Stream._build_model_instance_id(device)
 
         if device == "CPU":
             return base_model_instance_id
 
-        if device == "GPU":
-            if _get_bool_env("DLSPS_GPU_SHARE_MODEL_INSTANCE", True):
-                return base_model_instance_id
-            return f"{base_model_instance_id}_{stream_suffix}"
-
-        if _get_bool_env("DLSPS_NPU_SHARE_MODEL_INSTANCE", True):
+        if Stream._resolve_model_sharing(device, model_sharing):
             return base_model_instance_id
 
         return f"{base_model_instance_id}_{stream_suffix}"
@@ -254,6 +280,7 @@ class Stream:
         target_device: str,
         resolution_preset: str | None = None,
         inference_interval: int | None = None,
+        model_sharing: bool | None = None,
     ) -> dict[str, str]:
         hex_v = os.urandom(8).hex()
         peer_id = f"pallet_defect_detection_{hex_v}"
@@ -308,7 +335,10 @@ class Stream:
             },
         }
 
-        resolved_model_instance_id = self._resolve_model_instance_id(target_device, hex_v)
+        resolved_model_sharing = self._resolve_model_sharing(target_device, model_sharing)
+        resolved_model_instance_id = self._resolve_model_instance_id(
+            target_device, hex_v, resolved_model_sharing
+        )
         if resolved_model_instance_id:
             payload["parameters"]["detection-properties"][
                 "model-instance-id"
@@ -325,6 +355,7 @@ class Stream:
             f"device={target_device}, source={stream_path}, "
             f"resolution={resolved_preset} ({input_width}x{input_height}), "
             f"inference_interval={resolved_inference_interval}, "
+            f"model_sharing={resolved_model_sharing}, "
             f"model_instance_id={resolved_model_instance_id}"
         )
 
@@ -349,6 +380,7 @@ class Stream:
             "resolution_preset": resolved_preset,
             "resolution": f"{input_width}x{input_height}",
             "inference_interval": str(resolved_inference_interval),
+            "model_sharing": str(resolved_model_sharing).lower(),
         }
 
     def add_streams_parallel(
@@ -382,6 +414,7 @@ class Stream:
                     target_device=config["target_device"],
                     resolution_preset=config.get("resolution_preset"),
                     inference_interval=config.get("inference_interval"),
+                    model_sharing=config.get("model_sharing"),
                 )
                 return True, result
             except Exception as e:

@@ -40,6 +40,7 @@ function App() {
     count: number;
     resolutionPreset: ResolutionPreset;
     inferenceInterval: number;
+    modelSharing: boolean;
   }) {
     const createdPipelines: StreamTile[] = [];
 
@@ -53,6 +54,7 @@ function App() {
               {
                 resolutionPreset: data.resolutionPreset,
                 inferenceInterval: data.inferenceInterval,
+                modelSharing: data.modelSharing,
               },
               0
             ),
@@ -64,6 +66,7 @@ function App() {
               options: {
                 resolutionPreset: data.resolutionPreset,
                 inferenceInterval: data.inferenceInterval,
+                modelSharing: data.modelSharing,
               },
             }))
           );

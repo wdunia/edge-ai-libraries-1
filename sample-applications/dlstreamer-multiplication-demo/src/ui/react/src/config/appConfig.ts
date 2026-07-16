@@ -54,6 +54,12 @@ const defaultInferenceIntervalRaw = resolveEnvValue(
   "1"
 );
 
+const defaultModelSharingRaw = resolveEnvValue(
+  import.meta.env.VITE_DEFAULT_MODEL_SHARING,
+  "VITE_DEFAULT_MODEL_SHARING",
+  "false"
+).toLowerCase();
+
 export const appConfig = {
   pipelineServerUrl:
     import.meta.env.VITE_PIPELINE_SERVER_URL === "VITE_PIPELINE_SERVER_URL"
@@ -90,4 +96,6 @@ export const appConfig = {
   defaultInstanceCount: defaultInstanceCountRaw,
   defaultInferenceInterval: defaultInferenceIntervalRaw,
   defaultInferenceResolution,
+  defaultModelSharing:
+    defaultModelSharingRaw === "true" || defaultModelSharingRaw === "1",
 } as const;

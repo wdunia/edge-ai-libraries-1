@@ -131,6 +131,7 @@ export type CreatedPipeline = {
   resolutionPreset: ResolutionPreset;
   resolution: string;
   inferenceInterval: number;
+  modelSharing: boolean;
 };
 
 export type ResolutionPreset = "FULL" | "2/3" | "1/2" | "1/3";
@@ -138,6 +139,7 @@ export type ResolutionPreset = "FULL" | "2/3" | "1/2" | "1/3";
 export type CreatePipelineOptions = {
   resolutionPreset: ResolutionPreset;
   inferenceInterval: number;
+  modelSharing: boolean;
 };
 
 export type AddPipelineResponse = {
@@ -149,6 +151,7 @@ export type AddPipelineResponse = {
     resolution_preset: ResolutionPreset;
     resolution: string;
     inference_interval: string;
+    model_sharing: string;
   };
 };
 
@@ -184,8 +187,8 @@ export async function createCameraPipeline(
     target_device: device,
     resolution_preset: options.resolutionPreset,
     inference_interval: String(options.inferenceInterval),
+    model_sharing: String(options.modelSharing),
   });
-  index = index
   const response = await fetch(
     `${appConfig.apiUrl}/pipeline/add?${params.toString()}`,
     {
@@ -217,6 +220,7 @@ export async function createCameraPipeline(
   const resolutionPreset = data.metadata.resolution_preset;
   const resolution = data.metadata.resolution.trim();
   const inferenceInterval = Number(data.metadata.inference_interval);
+  const modelSharing = data.metadata.model_sharing === "true";
 
   return {
     streamId,
@@ -225,6 +229,7 @@ export async function createCameraPipeline(
     resolutionPreset,
     resolution,
     inferenceInterval,
+    modelSharing,
   };
 }
 
@@ -240,6 +245,7 @@ export type CreatePipelinesResponse = {
       resolution_preset: string;
       resolution: string;
       inference_interval: string | number;
+      model_sharing: string | boolean;
     }>;
     failed: Array<{ error: string }>;
   };
@@ -262,6 +268,7 @@ export async function createCameraPipelinesParallel(
     target_device: cfg.device,
     resolution_preset: cfg.options.resolutionPreset,
     inference_interval: cfg.options.inferenceInterval,
+    model_sharing: cfg.options.modelSharing,
   }));
 
   const response = await fetch(`${appConfig.apiUrl}/pipeline/batch/add`, {
@@ -295,6 +302,10 @@ export async function createCameraPipelinesParallel(
     inferenceInterval: typeof p.inference_interval === "string"
       ? Number(p.inference_interval)
       : p.inference_interval,
+    modelSharing:
+      typeof p.model_sharing === "boolean"
+        ? p.model_sharing
+        : p.model_sharing === "true",
   }));
 }
 

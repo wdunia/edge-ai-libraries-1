@@ -24,6 +24,7 @@ class PipelineConfig(BaseModel):
     target_device: str
     resolution_preset: str | None = None
     inference_interval: int | None = None
+    model_sharing: bool | None = None
 
 
 app.add_middleware(
@@ -77,6 +78,7 @@ async def add_pipeline(
     target_device: str,
     resolution_preset: str = "2/3",
     inference_interval: int = 1,
+    model_sharing: bool | None = None,
 ):
     try:
         response = await asyncio.to_thread(
@@ -86,6 +88,7 @@ async def add_pipeline(
             target_device,
             resolution_preset,
             inference_interval,
+            model_sharing,
         )
         return JSONResponse(content={"status": "Success", "metadata": response})
     except Exception as e:

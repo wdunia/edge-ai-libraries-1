@@ -11,6 +11,10 @@ const resolutionOptions: Array<{ value: ResolutionPreset; label: string }> = [
     { value: "1/2", label: "960x540 (1/2)" },
     { value: "1/3", label: "640x360 (1/3)" },
 ];
+const modelSharingOptions = [
+    { value: "false", label: "Disabled" },
+    { value: "true", label: "Enabled" },
+];
 
 type LeftPanelProps = {
     onAddPipeline: (data: {
@@ -20,6 +24,7 @@ type LeftPanelProps = {
         count: number;
         resolutionPreset: ResolutionPreset;
         inferenceInterval: number;
+        modelSharing: boolean;
     }) => Promise<void>;
 
     onRemoveAllPipelines: () => Promise<void>;
@@ -35,6 +40,9 @@ export function LeftPanel({ onAddPipeline, onRemoveAllPipelines }: LeftPanelProp
     );
     const [inferenceInterval, setInferenceInterval] = useState(
         appConfig.defaultInferenceInterval
+    );
+    const [modelSharing, setModelSharing] = useState(
+        String(appConfig.defaultModelSharing)
     );
     const [isRemovingAll, setIsRemovingAll] = useState(false);
 
@@ -54,6 +62,7 @@ export function LeftPanel({ onAddPipeline, onRemoveAllPipelines }: LeftPanelProp
                 count: count,
                 resolutionPreset,
                 inferenceInterval: parsedInferenceInterval,
+                modelSharing: modelSharing === "true",
             });
         } finally {
             setIsAdding(false);
@@ -112,6 +121,13 @@ export function LeftPanel({ onAddPipeline, onRemoveAllPipelines }: LeftPanelProp
                     placeholder="1"
                     value={inferenceInterval}
                     onChange={setInferenceInterval}
+                />
+
+                <StyledSelect
+                    label="Model sharing"
+                    data={modelSharingOptions}
+                    value={modelSharing}
+                    onChange={(value) => setModelSharing(value ?? "false")}
                 />
                 {devices.map((device) => (
                     <PipelineButton
