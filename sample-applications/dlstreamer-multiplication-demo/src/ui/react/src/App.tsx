@@ -19,10 +19,10 @@ import { deleteAllPipelines } from "./api/dlStreamerApi";
 import { subscribeToMetrics } from "./api/metricsApi";
 import { appConfig } from "./config/appConfig";
 
-type LayoutMode = "auto" | 1 | 2 | 3 | 4 | 5 | 6;
+type LayoutMode = "auto" | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 
-const layoutModes: LayoutMode[] = ["auto", 1, 2, 3, 4, 5, 6];
+const layoutModes: LayoutMode[] = ["auto", 1, 2, 3, 4, 5, 6, 7];
 
 function App() {
 

@@ -47,7 +47,7 @@ function getAutoColumns({
         return Math.max(streamCount, 1);
     }
 
-    const maxColumns = Math.min(streamCount, 6);
+    const maxColumns = Math.min(streamCount, 7);
 
     if (containerWidth <= 0 || containerHeight <= 0) {
         return Math.min(streamCount, 3);
@@ -110,7 +110,7 @@ function getAutoColumns({
 }
 
 type CameraGridProps = {
-    layoutMode: "auto" | 1 | 2 | 3 | 4 | 5 | 6;
+    layoutMode: "auto" | 1 | 2 | 3 | 4 | 5 | 6 | 7;
     streams: StreamTile[];
     onDeleteStream?: (stream: StreamTile) => void;
 };
