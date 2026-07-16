@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from http import HTTPStatus
 from urllib.parse import unquote
+from pydantic import BaseModel
 from .metrics import SystemMonitor
 from .stream import Stream
 
@@ -15,6 +16,14 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Deep Learning Streamer", root_path="/v1/dlstreamer")
 monitor = SystemMonitor()
 stream = Stream()
+
+
+class PipelineConfig(BaseModel):
+    stream_path: str
+    model_path: str
+    target_device: str
+    resolution_preset: str | None = None
+    inference_interval: int | None = None
 
 
 app.add_middleware(
@@ -87,7 +96,7 @@ async def add_pipeline(
 
 
 @app.post("/pipeline/batch/add", tags=["Pipelines"], summary="Add multiple pipelines in parallel")
-async def add_pipelines_batch(pipeline_configs: list[dict]):
+async def add_pipelines_batch(configs: list[PipelineConfig]):
     """
     Add multiple pipelines in parallel for faster bulk creation.
     
@@ -104,15 +113,18 @@ async def add_pipelines_batch(pipeline_configs: list[dict]):
     ]
     """
     try:
-        if not pipeline_configs:
-            raise ValueError("pipeline_configs list cannot be empty")
+        if not configs:
+            raise ValueError("configs list cannot be empty")
         
         # Get max_workers from environment or use default
         max_workers = int(os.environ.get("PIPELINE_ADD_MAX_WORKERS", "3"))
         
+        # Convert Pydantic models to dicts for stream.add_streams_parallel
+        pipeline_dicts = [cfg.model_dump() for cfg in configs]
+        
         result = await asyncio.to_thread(
             stream.add_streams_parallel,
-            pipeline_configs,
+            pipeline_dicts,
             max_workers,
         )
         return JSONResponse(content={"status": "Success", "metadata": result})

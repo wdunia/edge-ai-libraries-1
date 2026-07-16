@@ -78,7 +78,6 @@ function App() {
             : `${data.name}-${String(index + 1).padStart(2, "0")}`,
         type: data.device,
         fps: -1,
-        streamUrl: undefined,
         status: "QUEUED",
       });
     });

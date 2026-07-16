@@ -225,7 +225,14 @@ export type CreatePipelinesResponse = {
   status: string;
   metadata: {
     message: string;
-    succeeded: CreatedPipeline[];
+    succeeded: Array<{
+      stream_id: string;
+      peer_id: string;
+      stream_url: string;
+      resolution_preset: string;
+      resolution: string;
+      inference_interval: string | number;
+    }>;
     failed: Array<{ error: string }>;
   };
 };
@@ -272,14 +279,14 @@ export async function createCameraPipelinesParallel(
   }
 
   return data.metadata.succeeded.map((p) => ({
-    streamId: p.stream_id || p.streamId,
-    peerId: p.peer_id || p.peerId,
-    streamUrl: p.stream_url || p.streamUrl,
-    resolutionPreset: p.resolution_preset || p.resolutionPreset,
+    streamId: p.stream_id,
+    peerId: p.peer_id,
+    streamUrl: p.stream_url,
+    resolutionPreset: (p.resolution_preset as ResolutionPreset) || "2/3",
     resolution: p.resolution,
     inferenceInterval: typeof p.inference_interval === "string"
       ? Number(p.inference_interval)
-      : p.inferenceInterval,
+      : p.inference_interval,
   }));
 }
 
