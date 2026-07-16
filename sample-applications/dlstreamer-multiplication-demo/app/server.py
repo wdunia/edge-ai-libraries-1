@@ -111,6 +111,29 @@ async def delete_pipeline(stream_id: str):
         )
 
 
+@app.post("/pipeline/batch/delete", tags=["Pipelines"], summary="Delete multiple pipelines in parallel")
+async def delete_pipelines_batch(stream_ids: list[str]):
+    """
+    Delete multiple pipelines in parallel for faster cleanup.
+    
+    Request body example:
+    {
+        "stream_ids": ["stream_1", "stream_2", "stream_3"]
+    }
+    """
+    try:
+        if not stream_ids:
+            raise ValueError("stream_ids list cannot be empty")
+        
+        result = await asyncio.to_thread(stream.delete_streams_parallel, stream_ids)
+        return JSONResponse(content={"status": "Success", "metadata": result})
+    except Exception as e:
+        raise HTTPException(
+            status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting pipelines: {str(e)}",
+        )
+
+
 @app.get("/metadata/{file_path:path}", tags=["Metadata"], summary="Get metadata from file")
 async def get_metadata(file_path: str):
     try:

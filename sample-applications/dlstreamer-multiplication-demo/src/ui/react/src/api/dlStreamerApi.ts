@@ -257,5 +257,21 @@ export async function getPipelineStatus(): Promise<PipelineStatusItem[]> {
 }
 
 export async function deleteAllPipelines(streamIds: string[]): Promise<void> {
-  await Promise.all(streamIds.map((streamId) => deletePipeline(streamId)));
+  if (streamIds.length === 0) {
+    return;
+  }
+
+  // Use batch endpoint for faster parallel deletion on the server side
+  const response = await fetch(`${appConfig.apiUrl}/pipeline/batch/delete`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      accept: "application/json",
+    },
+    body: JSON.stringify(streamIds),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete pipelines. Status: ${response.status}`);
+  }
 }

@@ -4,7 +4,7 @@
       {
         "name": "pallet_defect_detection",
         "source": "gstreamer",
-        "queue_maxsize": 50,
+        "queue_maxsize": 30,
         "pipeline": "{auto_source} ! decodebin ! videoconvert ! videoscale ! video/x-raw,width={parameters[input_width]},height={parameters[input_height]} ! gvadetect name=detection ! queue ! gvawatermark ! gvafpscounter ! gvametaconvert add-empty-results=true name=metaconvert ! gvametapublish name=destination ! appsink name=appsink",
         "parameters": {
           "type": "object",
@@ -34,7 +34,7 @@
       {
         "name": "pallet_defect_detection_gpu",
         "source": "gstreamer",
-        "queue_maxsize": 50,
+        "queue_maxsize": 30,
         "pipeline": "{auto_source} ! parsebin ! vah264dec ! vapostproc ! video/x-raw(memory:VAMemory),width={parameters[input_width]},height={parameters[input_height]} ! queue ! gvadetect name=detection device=GPU pre-process-backend=va-surface-sharing ! gvametaconvert add-empty-results=true name=metaconvert ! gvametapublish name=destination ! queue ! gvafpscounter ! appsink name=appsink",
         "parameters": {
           "type": "object",
@@ -64,7 +64,7 @@
       {
         "name": "pallet_defect_detection_file_loop",
         "source": "gstreamer",
-        "queue_maxsize": 50,
+        "queue_maxsize": 30,
         "pipeline": "{auto_source} ! h264parse ! decodebin ! videoconvert ! videoscale ! video/x-raw,width={parameters[input_width]},height={parameters[input_height]} ! gvadetect name=detection ! queue ! gvawatermark ! gvafpscounter ! gvametaconvert add-empty-results=true name=metaconvert ! gvametapublish name=destination ! appsink name=appsink",
         "parameters": {
           "type": "object",
@@ -94,7 +94,7 @@
       {
         "name": "pallet_defect_detection_file_loop_gpu",
         "source": "gstreamer",
-        "queue_maxsize": 50,
+        "queue_maxsize": 30,
         "pipeline": "{auto_source} ! h264parse ! vah264dec ! vapostproc ! video/x-raw(memory:VAMemory),width={parameters[input_width]},height={parameters[input_height]} ! queue ! gvadetect name=detection device=GPU pre-process-backend=va-surface-sharing ! gvametaconvert add-empty-results=true name=metaconvert ! gvametapublish name=destination ! queue ! gvafpscounter ! appsink name=appsink",
         "parameters": {
           "type": "object",
@@ -124,7 +124,7 @@
       {
         "name": "pallet_defect_detection_npu",
         "source": "gstreamer",
-        "queue_maxsize": 50,
+        "queue_maxsize": 30,
         "pipeline": "{auto_source} ! parsebin ! vah264dec ! video/x-raw(memory:VAMemory) ! queue ! gvadetect name=detection device=NPU pre-process-backend=va ! gvametaconvert add-empty-results=true name=metaconvert ! gvametapublish name=destination ! queue ! gvafpscounter ! appsink name=appsink",
         "parameters": {
           "type": "object",
@@ -154,7 +154,7 @@
       {
         "name": "pallet_defect_detection_file_loop_npu",
         "source": "gstreamer",
-        "queue_maxsize": 50,
+        "queue_maxsize": 30,
         "pipeline": "{auto_source} ! h264parse ! vah264dec ! video/x-raw(memory:VAMemory) ! queue ! gvadetect name=detection device=NPU pre-process-backend=va ! gvametaconvert add-empty-results=true name=metaconvert ! gvametapublish name=destination ! queue ! gvafpscounter ! appsink name=appsink",
         "parameters": {
           "type": "object",

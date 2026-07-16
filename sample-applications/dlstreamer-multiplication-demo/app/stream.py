@@ -1,3 +1,4 @@
+import concurrent.futures
 import logging
 import os
 import threading
@@ -368,6 +369,42 @@ class Stream:
 
         logger.info(f"Pipeline deleted: {stream_id}")
         return {"message": f"Stream {stream_id} deleted successfully."}
+
+    def delete_streams_parallel(self, stream_ids: list[str]) -> dict:
+        """
+        Delete multiple streams in parallel using concurrent requests.
+        Returns summary of deletions (succeeded and failed).
+        """
+        succeeded = []
+        failed = []
+
+        def delete_one(stream_id: str) -> tuple[str, bool, str]:
+            try:
+                self.delete_stream(stream_id)
+                return stream_id, True, ""
+            except Exception as e:
+                logger.warning(f"Failed to delete pipeline {stream_id}: {e}")
+                return stream_id, False, str(e)
+
+        # Use ThreadPoolExecutor with limited concurrency to avoid overwhelming the server
+        max_workers = min(5, len(stream_ids))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(delete_one, sid) for sid in stream_ids]
+            for future in concurrent.futures.as_completed(futures):
+                stream_id, success, error = future.result()
+                if success:
+                    succeeded.append(stream_id)
+                else:
+                    failed.append({"stream_id": stream_id, "error": error})
+
+        logger.info(
+            f"Parallel delete completed: {len(succeeded)} succeeded, {len(failed)} failed"
+        )
+        return {
+            "message": f"Deleted {len(succeeded)} pipeline(s), {len(failed)} failed.",
+            "succeeded": succeeded,
+            "failed": failed,
+        }
 
     def view_stream(self, stream_id: str) -> dict:
         with self._lock:
