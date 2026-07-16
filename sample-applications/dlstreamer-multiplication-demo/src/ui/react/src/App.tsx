@@ -78,6 +78,7 @@ function App() {
             : `${data.name}-${String(index + 1).padStart(2, "0")}`,
         type: data.device,
         fps: -1,
+        streamUrl: pipeline.streamUrl,
         status: "QUEUED",
       });
     });
@@ -292,11 +293,17 @@ function App() {
       }
     }
 
-    void deleteAllPipelines(pipelineIdsToDelete).catch((error) => {
+    try {
+      await deleteAllPipelines(pipelineIdsToDelete);
+    } catch (error) {
       console.error(error);
+    } finally {
       hiddenPipelineIdsRef.current.clear();
-      setStreams(previousStreams);
-    });
+      await loadRunningStreams().catch((loadError) => {
+        console.error(loadError);
+        setStreams(previousStreams);
+      });
+    }
   }
 
   return (

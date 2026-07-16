@@ -2,6 +2,7 @@ import concurrent.futures
 import logging
 import os
 import threading
+import time
 import urllib.parse
 from typing import Any
 from urllib.parse import urlparse
@@ -13,6 +14,8 @@ logger = logging.getLogger(__name__)
 # Timeout for HTTP requests to the pipeline server (seconds)
 REQUEST_TIMEOUT = int(os.environ.get("PIPELINE_SERVER_TIMEOUT", "30"))
 DELETE_TIMEOUT = int(os.environ.get("PIPELINE_DELETE_TIMEOUT", "8"))
+DELETE_WAIT_TIMEOUT = int(os.environ.get("PIPELINE_STOP_WAIT_TIMEOUT", str(DELETE_TIMEOUT)))
+DELETE_POLL_INTERVAL = float(os.environ.get("PIPELINE_STOP_POLL_INTERVAL", "0.5"))
 
 FULL_HD_WIDTH = 1920
 FULL_HD_HEIGHT = 1080
@@ -416,15 +419,50 @@ class Stream:
         response = requests.get(url, timeout=REQUEST_TIMEOUT)
         return response.text
 
+    def _get_pipeline_state(self, stream_id: str) -> str | None:
+        url = f"{self._base_url}/pipelines/status"
+        response = requests.get(url, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+
+        payload = response.json()
+        if not isinstance(payload, list):
+            return None
+
+        for pipeline in payload:
+            if isinstance(pipeline, dict) and pipeline.get("id") == stream_id:
+                state = pipeline.get("state")
+                return str(state).upper() if state is not None else None
+
+        return None
+
+    def _wait_for_pipeline_stop(self, stream_id: str) -> str | None:
+        deadline = time.monotonic() + max(DELETE_WAIT_TIMEOUT, 1)
+        active_states = {"RUNNING", "QUEUED", "RECONNECTING", "BACKOFF_WAIT"}
+
+        while time.monotonic() < deadline:
+            state = self._get_pipeline_state(stream_id)
+            if state is None or state not in active_states:
+                return state
+            time.sleep(max(DELETE_POLL_INTERVAL, 0.1))
+
+        raise TimeoutError(
+            f"Timed out waiting for pipeline {stream_id} to stop on the pipeline server."
+        )
+
     def delete_stream(self, stream_id: str) -> dict:
         url = f"{self._base_url}/pipelines/{stream_id}"
         response = requests.delete(url, timeout=DELETE_TIMEOUT)
         response.raise_for_status()
+        final_state = self._wait_for_pipeline_stop(stream_id)
 
         with self._lock:
             self.streaminfo.pop(stream_id, None)
 
-        logger.info(f"Pipeline deleted: {stream_id}")
+        logger.info(
+            "Pipeline delete acknowledged: %s (final_state=%s)",
+            stream_id,
+            final_state or "removed",
+        )
         return {"message": f"Stream {stream_id} deleted successfully."}
 
     def delete_streams_parallel(self, stream_ids: list[str]) -> dict:

@@ -66,12 +66,7 @@ export async function getStreamInfo(streamId: string): Promise<StreamInfo> {
       : null;
 
   return {
-    streamUrl:
-      streamUrl && streamUrl.startsWith(appConfig.webrtcUrl)
-        ? streamUrl.endsWith("/")
-          ? streamUrl
-          : `${streamUrl}/`
-        : null,
+    streamUrl: normalizeStreamUrl(streamUrl),
     device,
   };
 }
@@ -164,6 +159,19 @@ export type StreamInfo = {
 
 const palletDefectDetectionModelPath = appConfig.modelPath;
 
+function normalizeStreamUrl(url: string | null | undefined): string | null {
+  if (typeof url !== "string") {
+    return null;
+  }
+
+  const trimmedUrl = url.trim();
+  if (!/^https?:\/\//.test(trimmedUrl)) {
+    return null;
+  }
+
+  return trimmedUrl.endsWith("/") ? trimmedUrl : `${trimmedUrl}/`;
+}
+
 export async function createCameraPipeline(
   device: DeviceType,
   sourceUri: string,
@@ -205,7 +213,7 @@ export async function createCameraPipeline(
 
   const streamId = data.metadata.stream_id.trim();
   const peerId = data.metadata.peer_id.trim();
-  const streamUrl = data.metadata.stream_url.trim();
+  const streamUrl = normalizeStreamUrl(data.metadata.stream_url);
   const resolutionPreset = data.metadata.resolution_preset;
   const resolution = data.metadata.resolution.trim();
   const inferenceInterval = Number(data.metadata.inference_interval);
@@ -213,7 +221,7 @@ export async function createCameraPipeline(
   return {
     streamId,
     peerId,
-    streamUrl,
+    streamUrl: streamUrl ?? "",
     resolutionPreset,
     resolution,
     inferenceInterval,
@@ -281,7 +289,7 @@ export async function createCameraPipelinesParallel(
   return data.metadata.succeeded.map((p) => ({
     streamId: p.stream_id,
     peerId: p.peer_id,
-    streamUrl: p.stream_url,
+    streamUrl: normalizeStreamUrl(p.stream_url) ?? "",
     resolutionPreset: (p.resolution_preset as ResolutionPreset) || "2/3",
     resolution: p.resolution,
     inferenceInterval: typeof p.inference_interval === "string"
@@ -311,6 +319,15 @@ export type PipelineStatusItem = {
 export type PipelineStatusResponse = {
   status: string;
   metadata: string;
+};
+
+export type DeletePipelinesResponse = {
+  status: string;
+  metadata: {
+    message: string;
+    succeeded: string[];
+    failed: Array<{ stream_id: string; error: string }>;
+  };
 };
 
 
@@ -343,5 +360,15 @@ export async function deleteAllPipelines(streamIds: string[]): Promise<void> {
 
   if (!response.ok) {
     throw new Error(`Failed to delete pipelines. Status: ${response.status}`);
+  }
+
+  const data = (await response.json()) as DeletePipelinesResponse;
+  if (data.status !== "Success") {
+    throw new Error("Batch pipeline deletion failed.");
+  }
+
+  if (data.metadata.failed.length > 0) {
+    const failedIds = data.metadata.failed.map((item) => item.stream_id).join(", ");
+    throw new Error(`Failed to delete pipeline(s): ${failedIds}`);
   }
 }
