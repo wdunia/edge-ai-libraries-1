@@ -26,12 +26,16 @@ type LeftPanelProps = {
 };
 
 export function LeftPanel({ onAddPipeline, onRemoveAllPipelines }: LeftPanelProps) {
-    const [streamName, setStreamName] = useState("CAM-01");
+    const [streamName, setStreamName] = useState(appConfig.defaultStreamName);
     const [streamUrl, setStreamUrl] = useState(appConfig.defaultStreamUrl);
     const [isAdding, setIsAdding] = useState(false);
-    const [streamCount, setStreamCount] = useState("1");
-    const [resolutionPreset, setResolutionPreset] = useState<ResolutionPreset>("2/3");
-    const [inferenceInterval, setInferenceInterval] = useState("1");
+    const [streamCount, setStreamCount] = useState(appConfig.defaultInstanceCount);
+    const [resolutionPreset, setResolutionPreset] = useState<ResolutionPreset>(
+        appConfig.defaultInferenceResolution as ResolutionPreset
+    );
+    const [inferenceInterval, setInferenceInterval] = useState(
+        appConfig.defaultInferenceInterval
+    );
     const [isRemovingAll, setIsRemovingAll] = useState(false);
 
     async function handleAddPipeline(device: DeviceType) {

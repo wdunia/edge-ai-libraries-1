@@ -19,6 +19,10 @@ FORCE_DOWN=false
 AUTO_OPEN_BROWSER=true
 SOURCE_MODE="${DLSPS_SOURCE_MODE:-file}"
 DEFAULT_STREAM_URL="${DEFAULT_RTSP_SOURCE_URL:-rtsp://host.docker.internal:8554/camera0}"
+DEFAULT_STREAM_NAME="${DEFAULT_STREAM_NAME:-CAM-01}"
+DEFAULT_INSTANCE_COUNT="${DEFAULT_INSTANCE_COUNT:-1}"
+DEFAULT_INFERENCE_INTERVAL="${DEFAULT_INFERENCE_INTERVAL:-1}"
+DEFAULT_INFERENCE_RESOLUTION="${DEFAULT_INFERENCE_RESOLUTION:-2/3}"
 MODEL_PATH_IN_CONTAINER="${MODEL_PATH_IN_CONTAINER:-/home/pipeline-server/resources/models/geti/pallet_defect_detection/deployment/Detection/model/model.xml}"
 SYSTEM_INFO_TEXT="${SYSTEM_INFO_TEXT:-CPU/GPU/NPU telemetry via prebuilt images}"
 
@@ -38,7 +42,7 @@ require_file() {
 
 usage() {
     cat <<EOF
-Usage: ./run_dlStreamer.sh [--force-restart|-f] [--open-browser|--no-open-browser] [--source-mode file|rtsp] [--help]
+Usage: ./run_dlStreamer.sh [--force-restart|-f] [--open-browser|--no-open-browser] [--source-mode file|rtsp] [--system-info-text text] [--help]
 
 Starts the demo stack from prebuilt images. On first run it also generates
 docker/.env and builds the two custom demo images if they are missing.
@@ -50,6 +54,7 @@ Options:
   --open-browser        Force opening the browser after services are up.
   --no-open-browser     Skip opening the browser automatically.
   --source-mode         Default source shown in the UI: file (default) or rtsp.
+  --system-info-text    Header text shown in the GUI (VITE_SYSTEM_INFO).
   --help, -h            Show this help message.
 EOF
 }
@@ -80,6 +85,15 @@ parse_args() {
                     exit 1
                 fi
                 SOURCE_MODE="$1"
+                ;;
+            --system-info-text)
+                shift
+                if [[ $# -eq 0 ]]; then
+                    echo "Missing value for --system-info-text" >&2
+                    usage >&2
+                    exit 1
+                fi
+                SYSTEM_INFO_TEXT="$1"
                 ;;
             --help|-h)
                 usage
@@ -215,6 +229,8 @@ main() {
 
     local ip
     local default_stream_url
+    local default_stream_url_file
+    local default_stream_url_rtsp
 
     ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
     if [[ -z "$ip" ]]; then
@@ -226,6 +242,8 @@ main() {
     else
         default_stream_url="${DEFAULT_STREAM_URL}"
     fi
+    default_stream_url_file="file:///home/pipeline-server/resources/videos/warehouse.avi"
+    default_stream_url_rtsp="${DEFAULT_STREAM_URL}"
 
     update_env_var "${DOCKER_ENV_FILE}" "ip" "${ip}"
     update_env_var "${DOCKER_ENV_FILE}" "WHIP_SERVER_IP" "${ip}"
@@ -235,6 +253,13 @@ main() {
     update_env_var "${DOCKER_ENV_FILE}" "VITE_SYSTEM_INFO" "${SYSTEM_INFO_TEXT}"
     update_env_var "${DOCKER_ENV_FILE}" "VITE_MODEL_PATH" "${MODEL_PATH_IN_CONTAINER}"
     update_env_var "${DOCKER_ENV_FILE}" "VITE_DEFAULT_STREAM_URL" "${default_stream_url}"
+    update_env_var "${DOCKER_ENV_FILE}" "VITE_DEFAULT_STREAM_NAME" "${DEFAULT_STREAM_NAME}"
+    update_env_var "${DOCKER_ENV_FILE}" "VITE_DEFAULT_SOURCE_MODE" "${SOURCE_MODE}"
+    update_env_var "${DOCKER_ENV_FILE}" "VITE_DEFAULT_STREAM_URL_FILE" "${default_stream_url_file}"
+    update_env_var "${DOCKER_ENV_FILE}" "VITE_DEFAULT_STREAM_URL_RTSP" "${default_stream_url_rtsp}"
+    update_env_var "${DOCKER_ENV_FILE}" "VITE_DEFAULT_INSTANCE_COUNT" "${DEFAULT_INSTANCE_COUNT}"
+    update_env_var "${DOCKER_ENV_FILE}" "VITE_DEFAULT_INFERENCE_INTERVAL" "${DEFAULT_INFERENCE_INTERVAL}"
+    update_env_var "${DOCKER_ENV_FILE}" "VITE_DEFAULT_INFERENCE_RESOLUTION" "${DEFAULT_INFERENCE_RESOLUTION}"
 
     update_env_var "${UI_ENV_FILE}" "VITE_PIPELINE_SERVER_URL" "http://${ip}:8080"
     update_env_var "${UI_ENV_FILE}" "VITE_API_URL" "http://${ip}:8888"
@@ -242,6 +267,13 @@ main() {
     update_env_var "${UI_ENV_FILE}" "VITE_SYSTEM_INFO" "${SYSTEM_INFO_TEXT}"
     update_env_var "${UI_ENV_FILE}" "VITE_MODEL_PATH" "${MODEL_PATH_IN_CONTAINER}"
     update_env_var "${UI_ENV_FILE}" "VITE_DEFAULT_STREAM_URL" "${default_stream_url}"
+    update_env_var "${UI_ENV_FILE}" "VITE_DEFAULT_STREAM_NAME" "${DEFAULT_STREAM_NAME}"
+    update_env_var "${UI_ENV_FILE}" "VITE_DEFAULT_SOURCE_MODE" "${SOURCE_MODE}"
+    update_env_var "${UI_ENV_FILE}" "VITE_DEFAULT_STREAM_URL_FILE" "${default_stream_url_file}"
+    update_env_var "${UI_ENV_FILE}" "VITE_DEFAULT_STREAM_URL_RTSP" "${default_stream_url_rtsp}"
+    update_env_var "${UI_ENV_FILE}" "VITE_DEFAULT_INSTANCE_COUNT" "${DEFAULT_INSTANCE_COUNT}"
+    update_env_var "${UI_ENV_FILE}" "VITE_DEFAULT_INFERENCE_INTERVAL" "${DEFAULT_INFERENCE_INTERVAL}"
+    update_env_var "${UI_ENV_FILE}" "VITE_DEFAULT_INFERENCE_RESOLUTION" "${DEFAULT_INFERENCE_RESOLUTION}"
 
     echo "Starting standalone image-based demo stack..."
     start_services

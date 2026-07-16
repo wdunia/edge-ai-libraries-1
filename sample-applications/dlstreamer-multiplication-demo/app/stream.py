@@ -137,6 +137,8 @@ class Stream:
                     "pre-process-backend": os.environ.get(
                         "DLSPS_NPU_PRE_PROCESS_BACKEND", "va"
                     ),
+                    "batch-size": _get_int_env("DLSPS_NPU_BATCH_SIZE", 1),
+                    "nireq": _get_int_env("DLSPS_NPU_NIREQ", 1),
                 }
             )
 
@@ -155,7 +157,7 @@ class Stream:
                 return base_model_instance_id
             return f"{base_model_instance_id}_{stream_suffix}"
 
-        if _get_bool_env("DLSPS_NPU_SHARE_MODEL_INSTANCE", False):
+        if _get_bool_env("DLSPS_NPU_SHARE_MODEL_INSTANCE", True):
             return base_model_instance_id
 
         return f"{base_model_instance_id}_{stream_suffix}"
@@ -280,7 +282,7 @@ class Stream:
                 "type": "uri",
             }
 
-        payload = {
+        payload: dict[str, Any] = {
             "source": source,
             "destination": {
                 "metadata": {

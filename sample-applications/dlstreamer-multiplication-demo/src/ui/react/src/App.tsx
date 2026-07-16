@@ -30,6 +30,7 @@ function App() {
   const [streams, setStreams] = useState<StreamTile[]>([]);
   const [hostRamSummary, setHostRamSummary] = useState<string>("N/A");
   const streamsRef = useRef<StreamTile[]>([]);
+  const hiddenPipelineIdsRef = useRef<Set<string>>(new Set());
 
   async function handleAddPipeline(data: {
     name: string;
@@ -97,7 +98,9 @@ function App() {
     const pipelineStatuses = await getPipelineStatus();
 
     const visiblePipelines = pipelineStatuses.filter(
-      (pipeline) => pipeline.state === "RUNNING" || pipeline.state === "QUEUED"
+      (pipeline) =>
+        (pipeline.state === "RUNNING" || pipeline.state === "QUEUED") &&
+        !hiddenPipelineIdsRef.current.has(pipeline.id)
     );
 
     const restoredStreams = await Promise.all(
@@ -131,7 +134,12 @@ function App() {
       try {
         const pipelineStatuses = await getPipelineStatus();
         const streamIdsNeedingUrl = streamsRef.current
-          .filter((stream) => !stream.streamUrl && !!stream.streamId)
+          .filter(
+            (stream) =>
+              !stream.streamUrl &&
+              !!stream.streamId &&
+              !hiddenPipelineIdsRef.current.has(stream.streamId)
+          )
           .filter((stream) => {
             const status = pipelineStatuses.find(
               (pipeline) => pipeline.id === stream.streamId
@@ -150,6 +158,10 @@ function App() {
             const status = pipelineStatuses.find(
               (pipeline) => pipeline.id === stream.streamId
             );
+
+            if (hiddenPipelineIdsRef.current.has(stream.streamId)) {
+              return stream;
+            }
 
             if (!status) {
               return stream;
@@ -213,6 +225,9 @@ function App() {
 
   async function handleDeleteStream(stream: StreamTile) {
     const previousStreams = streamsRef.current;
+    if (stream.streamId) {
+      hiddenPipelineIdsRef.current.add(stream.streamId);
+    }
     setStreams((previous) => previous.filter((item) => item.id !== stream.id));
 
     if (!stream.streamId) {
@@ -223,28 +238,48 @@ function App() {
       await deletePipeline(stream.streamId);
     } catch (error) {
       console.error(error);
+      hiddenPipelineIdsRef.current.delete(stream.streamId);
       setStreams(previousStreams);
+      return;
     }
+
+    hiddenPipelineIdsRef.current.delete(stream.streamId);
   }
 
   const totalFps = streams.reduce((sum, stream) => sum + stream.fps, 0);
 
   async function handleRemoveAllPipelines() {
-    const pipelineStatuses = await getPipelineStatus();
-
-    const runningPipelineIds = pipelineStatuses
-      .filter(
-        (pipeline) =>
-          pipeline.state === "RUNNING" ||
-          pipeline.state === "QUEUED"
-      )
-      .map((pipeline) => pipeline.id);
-
     const previousStreams = streamsRef.current;
+    const visiblePipelineIds = previousStreams
+      .map((stream) => stream.streamId)
+      .filter((streamId): streamId is string => Boolean(streamId));
+
+    for (const pipelineId of visiblePipelineIds) {
+      hiddenPipelineIdsRef.current.add(pipelineId);
+    }
+
     setStreams([]);
 
-    void deleteAllPipelines(runningPipelineIds).catch((error) => {
+    let pipelineIdsToDelete = visiblePipelineIds;
+
+    if (pipelineIdsToDelete.length === 0) {
+      const pipelineStatuses = await getPipelineStatus();
+      pipelineIdsToDelete = pipelineStatuses
+        .filter(
+          (pipeline) =>
+            pipeline.state === "RUNNING" ||
+            pipeline.state === "QUEUED"
+        )
+        .map((pipeline) => pipeline.id);
+
+      for (const pipelineId of pipelineIdsToDelete) {
+        hiddenPipelineIdsRef.current.add(pipelineId);
+      }
+    }
+
+    void deleteAllPipelines(pipelineIdsToDelete).catch((error) => {
       console.error(error);
+      hiddenPipelineIdsRef.current.clear();
       setStreams(previousStreams);
     });
   }

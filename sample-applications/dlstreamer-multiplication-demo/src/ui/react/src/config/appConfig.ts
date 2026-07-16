@@ -1,3 +1,59 @@
+function resolveEnvValue(value: string | undefined, placeholder: string, fallback: string) {
+  if (!value || value === placeholder) {
+    return fallback;
+  }
+  return value;
+}
+
+const defaultStreamUrlFile = resolveEnvValue(
+  import.meta.env.VITE_DEFAULT_STREAM_URL_FILE,
+  "VITE_DEFAULT_STREAM_URL_FILE",
+  "file:///home/pipeline-server/resources/videos/warehouse.avi"
+);
+
+const defaultStreamUrlRtsp = resolveEnvValue(
+  import.meta.env.VITE_DEFAULT_STREAM_URL_RTSP,
+  "VITE_DEFAULT_STREAM_URL_RTSP",
+  "rtsp://host.docker.internal:8554/camera0"
+);
+
+const defaultSourceModeRaw = resolveEnvValue(
+  import.meta.env.VITE_DEFAULT_SOURCE_MODE,
+  "VITE_DEFAULT_SOURCE_MODE",
+  "file"
+).toLowerCase();
+
+const defaultSourceMode =
+  defaultSourceModeRaw === "rtsp" || defaultSourceModeRaw === "file"
+    ? defaultSourceModeRaw
+    : "file";
+
+const defaultInferenceResolutionRaw = resolveEnvValue(
+  import.meta.env.VITE_DEFAULT_INFERENCE_RESOLUTION,
+  "VITE_DEFAULT_INFERENCE_RESOLUTION",
+  "2/3"
+);
+
+const defaultInferenceResolution =
+  defaultInferenceResolutionRaw === "FULL" ||
+  defaultInferenceResolutionRaw === "2/3" ||
+  defaultInferenceResolutionRaw === "1/2" ||
+  defaultInferenceResolutionRaw === "1/3"
+    ? defaultInferenceResolutionRaw
+    : "2/3";
+
+const defaultInstanceCountRaw = resolveEnvValue(
+  import.meta.env.VITE_DEFAULT_INSTANCE_COUNT,
+  "VITE_DEFAULT_INSTANCE_COUNT",
+  "1"
+);
+
+const defaultInferenceIntervalRaw = resolveEnvValue(
+  import.meta.env.VITE_DEFAULT_INFERENCE_INTERVAL,
+  "VITE_DEFAULT_INFERENCE_INTERVAL",
+  "1"
+);
+
 export const appConfig = {
   pipelineServerUrl:
     import.meta.env.VITE_PIPELINE_SERVER_URL === "VITE_PIPELINE_SERVER_URL"
@@ -21,9 +77,17 @@ export const appConfig = {
       ? "/home/pipeline-server/resources/models/geti/pallet_defect_detection/deployment/Detection/model/model.xml"
       : (import.meta.env.VITE_MODEL_PATH ??
         "/home/pipeline-server/resources/models/geti/pallet_defect_detection/deployment/Detection/model/model.xml"),
+  defaultStreamName: resolveEnvValue(
+    import.meta.env.VITE_DEFAULT_STREAM_NAME,
+    "VITE_DEFAULT_STREAM_NAME",
+    "CAM-01"
+  ),
+  defaultSourceMode,
+  defaultStreamUrlFile,
+  defaultStreamUrlRtsp,
   defaultStreamUrl:
-    import.meta.env.VITE_DEFAULT_STREAM_URL === "VITE_DEFAULT_STREAM_URL"
-      ? "file:///home/pipeline-server/resources/videos/warehouse.avi"
-      : (import.meta.env.VITE_DEFAULT_STREAM_URL ??
-        "file:///home/pipeline-server/resources/videos/warehouse.avi"),
+    defaultSourceMode === "rtsp" ? defaultStreamUrlRtsp : defaultStreamUrlFile,
+  defaultInstanceCount: defaultInstanceCountRaw,
+  defaultInferenceInterval: defaultInferenceIntervalRaw,
+  defaultInferenceResolution,
 } as const;
