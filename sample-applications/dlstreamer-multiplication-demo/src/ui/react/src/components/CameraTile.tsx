@@ -1,6 +1,9 @@
 import { ActionIcon, Badge, Box, Group, Text } from "@mantine/core";
 import { bg, pipelineTypeConfig, type DeviceType, accent } from "../styles/theme";
 
+export const STREAM_PREVIEW_ASPECT_RATIO = 16 / 9;
+export const CAMERA_TILE_CHROME_HEIGHT_PX = 66;
+
 export type StreamTile = {
     id: number;
     streamId?: string;
@@ -22,6 +25,8 @@ export function CameraTile({ stream, onDelete }: CameraTileProps) {
     return (
         <Box
             style={{
+                display: "flex",
+                flexDirection: "column",
                 overflow: "hidden",
                 borderRadius: 6,
                 border: `1px solid ${bg.border}`,
@@ -92,45 +97,53 @@ export function CameraTile({ stream, onDelete }: CameraTileProps) {
 
             <Box
                 style={{
-                    height: "calc(100% - 38px)",
-                    margin: 12,
-                    background: "#000",
-                    position: "relative",
-                    overflow: "hidden",
+                    padding: 12,
                 }}
             >
-                {stream.streamUrl ? (
-                    <iframe
-                        src={stream.streamUrl}
-                        title={stream.name}
-                        style={{
-                            width: "100%",
-                            height: "100%",
-                            border: "none",
-                            display: "block",
-                        }}
-                        allow="autoplay; fullscreen"
-                    />
-                ) : (
-                    <Box
-                        style={{
-                            height: "100%",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                        }}
-                    >
-                        <Text size="xs" fw={700} c="dimmed" lts="0.2em">
-                            {stream.status === "QUEUED"
-                                ? "INITIALIZING PIPELINE..."
-                                : stream.status === "ERROR"
-                                    ? "PIPELINE ERROR"
-                                    : stream.status === "COMPLETED"
-                                        ? "PIPELINE COMPLETED"
-                                        : "WAITING FOR VIDEO CONNECTION..."}
-                        </Text>
-                    </Box>
-                )}
+                <Box
+                    style={{
+                        width: "100%",
+                        aspectRatio: "16 / 9",
+                        background: "#000",
+                        position: "relative",
+                        overflow: "hidden",
+                    }}
+                >
+                    {stream.streamUrl ? (
+                        <iframe
+                            src={stream.streamUrl}
+                            title={stream.name}
+                            style={{
+                                width: "100%",
+                                height: "100%",
+                                border: "none",
+                                display: "block",
+                            }}
+                            allow="autoplay; fullscreen"
+                        />
+                    ) : (
+                        <Box
+                            style={{
+                                height: "100%",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                textAlign: "center",
+                                paddingInline: 12,
+                            }}
+                        >
+                            <Text size="xs" fw={700} c="dimmed" lts="0.2em">
+                                {stream.status === "QUEUED"
+                                    ? "INITIALIZING PIPELINE..."
+                                    : stream.status === "ERROR"
+                                        ? "PIPELINE ERROR"
+                                        : stream.status === "COMPLETED"
+                                            ? "PIPELINE COMPLETED"
+                                            : "WAITING FOR VIDEO CONNECTION..."}
+                            </Text>
+                        </Box>
+                    )}
+                </Box>
             </Box>
         </Box>
     );

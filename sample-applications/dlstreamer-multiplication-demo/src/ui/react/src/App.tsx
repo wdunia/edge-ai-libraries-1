@@ -19,15 +19,15 @@ import { deleteAllPipelines } from "./api/dlStreamerApi";
 import { subscribeToMetrics } from "./api/metricsApi";
 import { appConfig } from "./config/appConfig";
 
-type LayoutMode = 1 | 4 | 9 | 16 | 25 | 36;
+type LayoutMode = 1 | 2 | 3 | 4 | 5 | 6;
 
 
-const layoutModes: LayoutMode[] = [1, 4, 9, 16, 25, 36];
+const layoutModes: LayoutMode[] = [1, 2, 3, 4, 5, 6];
 
 function App() {
 
   const [health, setHealth] = useState<HealthStatus | null>(null);
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>(9);
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>(3);
   const [streams, setStreams] = useState<StreamTile[]>([]);
   const [hostRamSummary, setHostRamSummary] = useState<string>("N/A");
   const streamsRef = useRef<StreamTile[]>([]);
@@ -409,8 +409,8 @@ function App() {
               }}
             >
               <Group gap="sm" wrap="nowrap">
-                <Text size="xs" fw={700} c="dimmed" tt="uppercase" lts="0.18em">
-                  Layout
+                  <Text size="xs" fw={700} c="dimmed" tt="uppercase" lts="0.18em">
+                  Columns
                 </Text>
 
                 <Group gap={8} wrap="nowrap">
