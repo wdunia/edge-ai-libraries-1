@@ -58,7 +58,7 @@ function App() {
             ),
           ]
         : await createCameraPipelinesParallel(
-            Array.from({ length: data.count }, (_, i) => ({
+            Array.from({ length: data.count }, () => ({
               device: data.device,
               sourceUri: data.sourceUri,
               options: {
