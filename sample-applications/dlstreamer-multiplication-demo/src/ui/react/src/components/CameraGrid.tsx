@@ -8,7 +8,6 @@ import {
 } from "./CameraTile";
 
 const GRID_GAP_PX = 16;
-const MIN_AUTO_TILE_WIDTH_PX = 320;
 
 function getGridMetrics({
     columns,
@@ -48,29 +47,20 @@ function getAutoColumns({
         return Math.max(streamCount, 1);
     }
 
-    const hardMaxColumns = Math.min(streamCount, 6);
+    const maxColumns = Math.min(streamCount, 6);
 
     if (containerWidth <= 0 || containerHeight <= 0) {
         return Math.min(streamCount, 3);
     }
 
-    const preferredMaxColumns = Math.max(
-        1,
-        Math.min(
-            hardMaxColumns,
-            Math.floor(
-                (containerWidth + GRID_GAP_PX) / (MIN_AUTO_TILE_WIDTH_PX + GRID_GAP_PX)
-            )
-        )
-    );
-    const maxColumns = Math.max(
-        Math.min(streamCount, 3),
-        preferredMaxColumns
-    );
-
-    let bestCandidate: {
+    let bestFit: {
         columns: number;
-        score: number;
+        videoArea: number;
+        overflow: number;
+    } | null = null;
+    let bestOverflow: {
+        columns: number;
+        overflow: number;
         videoArea: number;
     } | null = null;
 
@@ -87,23 +77,36 @@ function getAutoColumns({
 
         const overflow = Math.max(metrics.gridHeight - containerHeight, 0);
         const videoArea = metrics.tileWidth * metrics.videoHeight;
-        const overflowRatio = overflow / Math.max(containerHeight, 1);
-        const score = videoArea / (1 + overflowRatio);
+
+        if (overflow === 0) {
+            if (
+                !bestFit ||
+                videoArea > bestFit.videoArea ||
+                (videoArea === bestFit.videoArea && columns < bestFit.columns)
+            ) {
+                bestFit = {
+                    columns,
+                    videoArea,
+                    overflow,
+                };
+            }
+            continue;
+        }
 
         if (
-            !bestCandidate ||
-            score > bestCandidate.score ||
-            (score === bestCandidate.score && videoArea > bestCandidate.videoArea)
+            !bestOverflow ||
+            overflow < bestOverflow.overflow ||
+            (overflow === bestOverflow.overflow && videoArea > bestOverflow.videoArea)
         ) {
-            bestCandidate = {
+            bestOverflow = {
                 columns,
-                score,
+                overflow,
                 videoArea,
             };
         }
     }
 
-    return bestCandidate?.columns ?? Math.min(streamCount, 3);
+    return bestFit?.columns ?? bestOverflow?.columns ?? Math.min(streamCount, 3);
 }
 
 type CameraGridProps = {
