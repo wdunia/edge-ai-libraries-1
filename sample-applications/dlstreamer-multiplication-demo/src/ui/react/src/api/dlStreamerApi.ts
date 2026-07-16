@@ -178,8 +178,7 @@ function normalizeStreamUrl(url: string | null | undefined): string | null {
 export async function createCameraPipeline(
   device: DeviceType,
   sourceUri: string,
-  options: CreatePipelineOptions,
-  index = 0
+  options: CreatePipelineOptions
 ): Promise<CreatedPipeline> {
   const params = new URLSearchParams({
     stream_path: sourceUri,

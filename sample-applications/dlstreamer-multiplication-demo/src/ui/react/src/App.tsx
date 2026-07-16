@@ -55,8 +55,7 @@ function App() {
                 resolutionPreset: data.resolutionPreset,
                 inferenceInterval: data.inferenceInterval,
                 modelSharing: data.modelSharing,
-              },
-              0
+              }
             ),
           ]
         : await createCameraPipelinesParallel(
