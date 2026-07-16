@@ -221,6 +221,69 @@ export async function createCameraPipeline(
 }
 
 
+export type CreatePipelinesResponse = {
+  status: string;
+  metadata: {
+    message: string;
+    succeeded: CreatedPipeline[];
+    failed: Array<{ error: string }>;
+  };
+};
+
+export async function createCameraPipelinesParallel(
+  configs: Array<{
+    device: DeviceType;
+    sourceUri: string;
+    options: CreatePipelineOptions;
+  }>
+): Promise<CreatedPipeline[]> {
+  if (configs.length === 0) {
+    return [];
+  }
+
+  const pipelineConfigs = configs.map((cfg) => ({
+    stream_path: cfg.sourceUri,
+    model_path: palletDefectDetectionModelPath,
+    target_device: cfg.device,
+    resolution_preset: cfg.options.resolutionPreset,
+    inference_interval: cfg.options.inferenceInterval,
+  }));
+
+  const response = await fetch(`${appConfig.apiUrl}/pipeline/batch/add`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      accept: "application/json",
+    },
+    body: JSON.stringify(pipelineConfigs),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(
+      `Failed to create pipelines. Status: ${response.status}. Response: ${errorText}`
+    );
+  }
+
+  const data = (await response.json()) as CreatePipelinesResponse;
+
+  if (data.status !== "Success" || !data.metadata) {
+    throw new Error("Failed to create pipelines. Missing metadata.");
+  }
+
+  return data.metadata.succeeded.map((p) => ({
+    streamId: p.stream_id || p.streamId,
+    peerId: p.peer_id || p.peerId,
+    streamUrl: p.stream_url || p.streamUrl,
+    resolutionPreset: p.resolution_preset || p.resolutionPreset,
+    resolution: p.resolution,
+    inferenceInterval: typeof p.inference_interval === "string"
+      ? Number(p.inference_interval)
+      : p.inferenceInterval,
+  }));
+}
+
+
 export async function deletePipeline(streamId: string): Promise<void> {
   const response = await fetch(`${appConfig.apiUrl}/pipeline/${streamId}`, {
     method: "DELETE",

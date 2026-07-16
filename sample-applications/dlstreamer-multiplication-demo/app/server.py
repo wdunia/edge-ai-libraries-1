@@ -86,6 +86,43 @@ async def add_pipeline(
         )
 
 
+@app.post("/pipeline/batch/add", tags=["Pipelines"], summary="Add multiple pipelines in parallel")
+async def add_pipelines_batch(pipeline_configs: list[dict]):
+    """
+    Add multiple pipelines in parallel for faster bulk creation.
+    
+    Request body example:
+    [
+        {
+            "stream_path": "file:///path/to/video.avi",
+            "model_path": "/path/to/model.xml",
+            "target_device": "GPU",
+            "resolution_preset": "2/3",
+            "inference_interval": 1
+        },
+        ...
+    ]
+    """
+    try:
+        if not pipeline_configs:
+            raise ValueError("pipeline_configs list cannot be empty")
+        
+        # Get max_workers from environment or use default
+        max_workers = int(os.environ.get("PIPELINE_ADD_MAX_WORKERS", "3"))
+        
+        result = await asyncio.to_thread(
+            stream.add_streams_parallel,
+            pipeline_configs,
+            max_workers,
+        )
+        return JSONResponse(content={"status": "Success", "metadata": result})
+    except Exception as e:
+        raise HTTPException(
+            status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
+            detail=f"Error adding pipelines: {str(e)}",
+        )
+
+
 @app.get("/pipeline/metadata/{file_path:path}", tags=["Pipelines"], summary="View pipeline metadata")
 async def view_pipeline_metadata(file_path: str = ""):
     try:

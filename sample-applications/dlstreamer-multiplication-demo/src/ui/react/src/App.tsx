@@ -8,6 +8,7 @@ import type { StreamTile } from "./components/CameraTile";
 import {
   checkHealth,
   createCameraPipeline,
+  createCameraPipelinesParallel,
   deletePipeline,
   getPipelineStatus,
   getStreamInfo,
@@ -42,20 +43,35 @@ function App() {
   }) {
     const createdPipelines: StreamTile[] = [];
 
-    for (let index = 0; index < data.count; index += 1) {
-      const created = await createCameraPipeline(
-        data.device,
-        data.sourceUri,
-        {
-          resolutionPreset: data.resolutionPreset,
-          inferenceInterval: data.inferenceInterval,
-        },
-        index
-      );
+    // Use parallel creation for multiple pipelines, sequential for single
+    const created =
+      data.count === 1
+        ? [
+            await createCameraPipeline(
+              data.device,
+              data.sourceUri,
+              {
+                resolutionPreset: data.resolutionPreset,
+                inferenceInterval: data.inferenceInterval,
+              },
+              0
+            ),
+          ]
+        : await createCameraPipelinesParallel(
+            Array.from({ length: data.count }, (_, i) => ({
+              device: data.device,
+              sourceUri: data.sourceUri,
+              options: {
+                resolutionPreset: data.resolutionPreset,
+                inferenceInterval: data.inferenceInterval,
+              },
+            }))
+          );
 
+    created.forEach((pipeline, index) => {
       createdPipelines.push({
         id: Date.now() + index,
-        streamId: created.streamId,
+        streamId: pipeline.streamId,
         name:
           data.count === 1
             ? data.name
@@ -65,7 +81,7 @@ function App() {
         streamUrl: undefined,
         status: "QUEUED",
       });
-    }
+    });
 
     setStreams((previous) => [...previous, ...createdPipelines]);
   }

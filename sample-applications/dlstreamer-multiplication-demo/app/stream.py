@@ -348,6 +348,63 @@ class Stream:
             "inference_interval": str(resolved_inference_interval),
         }
 
+    def add_streams_parallel(
+        self,
+        pipeline_configs: list[dict],
+        max_workers: int = 3,
+    ) -> dict:
+        """
+        Add multiple streams in parallel using concurrent requests.
+        
+        Args:
+            pipeline_configs: List of dicts with keys:
+                - stream_path: str
+                - model_path: str
+                - target_device: str
+                - resolution_preset: str (optional)
+                - inference_interval: int (optional)
+            max_workers: Maximum number of concurrent add operations (default: 3)
+        
+        Returns:
+            {"succeeded": [...], "failed": [...]}
+        """
+        succeeded = []
+        failed = []
+
+        def add_one(config: dict) -> tuple[bool, dict | dict[str, str]]:
+            try:
+                result = self.add_stream(
+                    stream_path=config["stream_path"],
+                    model_path=config["model_path"],
+                    target_device=config["target_device"],
+                    resolution_preset=config.get("resolution_preset"),
+                    inference_interval=config.get("inference_interval"),
+                )
+                return True, result
+            except Exception as e:
+                logger.warning(f"Failed to add pipeline: {e}")
+                return False, {"error": str(e)}
+
+        # Use ThreadPoolExecutor with controlled concurrency to avoid CPU spike
+        effective_max_workers = min(max_workers, len(pipeline_configs))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=effective_max_workers) as executor:
+            futures = [executor.submit(add_one, cfg) for cfg in pipeline_configs]
+            for future in concurrent.futures.as_completed(futures):
+                success, result = future.result()
+                if success:
+                    succeeded.append(result)
+                else:
+                    failed.append(result)
+
+        logger.info(
+            f"Parallel add completed: {len(succeeded)} succeeded, {len(failed)} failed"
+        )
+        return {
+            "message": f"Added {len(succeeded)} pipeline(s), {len(failed)} failed.",
+            "succeeded": succeeded,
+            "failed": failed,
+        }
+
     def view_metadata(self, file_path: str) -> str:
         encoded_path = urllib.parse.quote(file_path)
         url = f"{self._base_url}/metadata/{encoded_path}"
