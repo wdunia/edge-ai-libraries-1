@@ -10,13 +10,15 @@ type AreaChartProps = {
     values: number[];
     color: string;
     gradientId: string;
+    minValue?: number;
+    maxValue?: number;
 };
 
-function AreaChart({ values, color, gradientId }: AreaChartProps) {
+function AreaChart({ values, color, gradientId, minValue, maxValue }: AreaChartProps) {
     const safeValues = values.length > 1 ? values : [0, 0];
 
-    const min = Math.min(...safeValues);
-    const max = Math.max(...safeValues);
+    const min = minValue ?? Math.min(...safeValues);
+    const max = maxValue ?? Math.max(...safeValues);
     const range = max - min || 1;
 
     const points = safeValues.map((value, index) => {
@@ -71,11 +73,17 @@ function MetricTile({
     value,
     color,
     values,
+    titleColor = "dimmed",
+    chartMin,
+    chartMax,
 }: {
     title: string;
     value: string;
     color: string;
     values: number[];
+    titleColor?: string;
+    chartMin?: number;
+    chartMax?: number;
 }) {
     return (
         <Box
@@ -88,10 +96,16 @@ function MetricTile({
                 background: bg.tile,
             }}
         >
-            <AreaChart values={values} color={color} gradientId={`area-${title}`} />
+            <AreaChart
+                values={values}
+                color={color}
+                gradientId={`area-${title}`}
+                minValue={chartMin}
+                maxValue={chartMax}
+            />
 
             <Box style={{ position: "absolute", left: 16, top: 12, zIndex: 1 }}>
-                <Text size="xs" fw={700} tt="uppercase" lts="0.22em" c="dimmed">
+                <Text size="xs" fw={700} tt="uppercase" lts="0.22em" c={titleColor}>
                     {title}
                 </Text>
 
@@ -178,9 +192,33 @@ export function MetricsPanel() {
     return (
         <Box style={{ height: "100%", minHeight: 0 }}>
             <SimpleGrid cols={4} spacing="md">
-                <MetricTile title="GPU" value={gpuValue} color={accent.green} values={history.gpu} />
-                <MetricTile title="NPU" value={npuValue} color={accent.purple} values={history.npu} />
-                <MetricTile title="CPU" value={cpuValue} color={accent.blue} values={history.cpu} />
+                <MetricTile
+                    title="GPU"
+                    value={gpuValue}
+                    color={accent.green}
+                    values={history.gpu}
+                    titleColor="white"
+                    chartMin={0}
+                    chartMax={100}
+                />
+                <MetricTile
+                    title="NPU"
+                    value={npuValue}
+                    color={accent.purple}
+                    values={history.npu}
+                    titleColor="white"
+                    chartMin={0}
+                    chartMax={100}
+                />
+                <MetricTile
+                    title="CPU"
+                    value={cpuValue}
+                    color={accent.blue}
+                    values={history.cpu}
+                    titleColor="white"
+                    chartMin={0}
+                    chartMax={100}
+                />
                 <MetricTile title="FPS" value={fpsValue} color={accent.green} values={history.fps} />
             </SimpleGrid>
         </Box>
