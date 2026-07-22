@@ -80,6 +80,7 @@ class Stream:
         )
         # External host IP for URLs that reach the browser (WebRTC)
         self.external_ip = os.environ.get("HOST_IP", os.environ.get("ip", "localhost"))
+        self.external_scheme = os.environ.get("EXTERNAL_SCHEME", "http")
         self._lock = threading.Lock()
         self.streaminfo: dict[str, dict[str, str]] = {}
 
@@ -87,8 +88,15 @@ class Stream:
     def _base_url(self) -> str:
         return f"http://{self.pipeline_server_host}:8080"
 
-    def _build_stream_url(self, peer_id: str) -> str:
-        return f"http://{self.external_ip}:8889/{peer_id}"
+    def _build_stream_url(
+        self,
+        peer_id: str,
+        external_host: str | None = None,
+        external_scheme: str | None = None,
+    ) -> str:
+        resolved_host = (external_host or self.external_ip).strip() or self.external_ip
+        resolved_scheme = (external_scheme or self.external_scheme).strip() or self.external_scheme
+        return f"{resolved_scheme}://{resolved_host}:8889/{peer_id}"
 
     @staticmethod
     def _build_model_instance_id(target_device: str) -> str:
@@ -281,6 +289,8 @@ class Stream:
         resolution_preset: str | None = None,
         inference_interval: int | None = None,
         model_sharing: bool | None = None,
+        external_host: str | None = None,
+        external_scheme: str | None = None,
     ) -> dict[str, str]:
         hex_v = os.urandom(8).hex()
         peer_id = f"pallet_defect_detection_{hex_v}"
@@ -376,7 +386,7 @@ class Stream:
         return {
             "stream_id": stream_id,
             "peer_id": peer_id,
-            "stream_url": self._build_stream_url(peer_id),
+            "stream_url": self._build_stream_url(peer_id, external_host, external_scheme),
             "resolution_preset": resolved_preset,
             "resolution": f"{input_width}x{input_height}",
             "inference_interval": str(resolved_inference_interval),
@@ -387,6 +397,8 @@ class Stream:
         self,
         pipeline_configs: list[dict],
         max_workers: int = 3,
+        external_host: str | None = None,
+        external_scheme: str | None = None,
     ) -> dict:
         """
         Add multiple streams in parallel using concurrent requests.
@@ -415,6 +427,8 @@ class Stream:
                     resolution_preset=config.get("resolution_preset"),
                     inference_interval=config.get("inference_interval"),
                     model_sharing=config.get("model_sharing"),
+                    external_host=external_host,
+                    external_scheme=external_scheme,
                 )
                 return True, result
             except Exception as e:
@@ -534,7 +548,12 @@ class Stream:
             "failed": failed,
         }
 
-    def view_stream(self, stream_id: str) -> dict:
+    def view_stream(
+        self,
+        stream_id: str,
+        external_host: str | None = None,
+        external_scheme: str | None = None,
+    ) -> dict:
         with self._lock:
             stream_info = self.streaminfo.get(stream_id)
 
@@ -542,7 +561,11 @@ class Stream:
             stream_info = self._load_stream_info_from_pipeline(stream_id)
 
         if stream_info and stream_info.get("peer_id"):
-            stream_url = self._build_stream_url(stream_info["peer_id"])
+            stream_url = self._build_stream_url(
+                stream_info["peer_id"],
+                external_host,
+                external_scheme,
+            )
             target_device = stream_info.get("target_device", "unknown")
         else:
             logger.warning(f"Stream metadata not found for {stream_id}")

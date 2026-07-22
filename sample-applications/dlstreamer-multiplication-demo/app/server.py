@@ -3,6 +3,7 @@ import logging
 import os
 import uvicorn
 from fastapi import FastAPI, HTTPException
+from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 from http import HTTPStatus
@@ -16,6 +17,32 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Deep Learning Streamer", root_path="/v1/dlstreamer")
 monitor = SystemMonitor()
 stream = Stream()
+
+
+def _get_external_host(request: Request) -> str | None:
+    forwarded_host = request.headers.get("x-forwarded-host")
+    if forwarded_host:
+        return forwarded_host.split(",", 1)[0].strip().split(":", 1)[0] or None
+
+    host = request.headers.get("host")
+    if host:
+        return host.strip().split(":", 1)[0] or None
+
+    if request.url.hostname:
+        return request.url.hostname
+
+    return None
+
+
+def _get_external_scheme(request: Request) -> str | None:
+    forwarded_proto = request.headers.get("x-forwarded-proto")
+    if forwarded_proto:
+        return forwarded_proto.split(",", 1)[0].strip() or None
+
+    if request.url.scheme:
+        return request.url.scheme
+
+    return None
 
 
 class PipelineConfig(BaseModel):
@@ -73,6 +100,7 @@ async def get_pipeline_status():
 
 @app.post("/pipeline/add", tags=["Pipelines"], summary="Add a new pipeline")
 async def add_pipeline(
+    request: Request,
     stream_path: str,
     model_path: str,
     target_device: str,
@@ -81,6 +109,8 @@ async def add_pipeline(
     model_sharing: bool | None = None,
 ):
     try:
+        external_host = _get_external_host(request)
+        external_scheme = _get_external_scheme(request)
         response = await asyncio.to_thread(
             stream.add_stream,
             stream_path,
@@ -89,6 +119,8 @@ async def add_pipeline(
             resolution_preset,
             inference_interval,
             model_sharing,
+            external_host,
+            external_scheme,
         )
         return JSONResponse(content={"status": "Success", "metadata": response})
     except Exception as e:
@@ -99,7 +131,7 @@ async def add_pipeline(
 
 
 @app.post("/pipeline/batch/add", tags=["Pipelines"], summary="Add multiple pipelines in parallel")
-async def add_pipelines_batch(configs: list[PipelineConfig]):
+async def add_pipelines_batch(request: Request, configs: list[PipelineConfig]):
     """
     Add multiple pipelines in parallel for faster bulk creation.
     
@@ -118,6 +150,9 @@ async def add_pipelines_batch(configs: list[PipelineConfig]):
     try:
         if not configs:
             raise ValueError("configs list cannot be empty")
+
+        external_host = _get_external_host(request)
+        external_scheme = _get_external_scheme(request)
         
         # Get max_workers from environment or use default
         max_workers = int(os.environ.get("PIPELINE_ADD_MAX_WORKERS", "3"))
@@ -129,6 +164,8 @@ async def add_pipelines_batch(configs: list[PipelineConfig]):
             stream.add_streams_parallel,
             pipeline_dicts,
             max_workers,
+            external_host,
+            external_scheme,
         )
         return JSONResponse(content={"status": "Success", "metadata": result})
     except Exception as e:
@@ -200,9 +237,16 @@ async def get_metadata(file_path: str):
 
 
 @app.get("/stream/{stream_id}", tags=["Stream"], summary="Get stream_url")
-async def get_stream(stream_id: str):
+async def get_stream(stream_id: str, request: Request):
     try:
-        stream_url = await asyncio.to_thread(stream.view_stream, stream_id)
+        external_host = _get_external_host(request)
+        external_scheme = _get_external_scheme(request)
+        stream_url = await asyncio.to_thread(
+            stream.view_stream,
+            stream_id,
+            external_host,
+            external_scheme,
+        )
         return JSONResponse(content={"status": "Success", "metadata": stream_url})
     except Exception as e:
         raise HTTPException(
