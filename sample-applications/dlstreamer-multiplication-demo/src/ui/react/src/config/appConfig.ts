@@ -5,6 +5,22 @@ function resolveEnvValue(value: string | undefined, placeholder: string, fallbac
   return value;
 }
 
+function resolveServiceUrl(
+  value: string | undefined,
+  placeholder: string,
+  port: number
+) {
+  if (value && value !== placeholder) {
+    return value;
+  }
+
+  if (typeof window !== "undefined" && window.location.hostname) {
+    return `${window.location.protocol}//${window.location.hostname}:${port}`;
+  }
+
+  return `http://127.0.0.1:${port}`;
+}
+
 const defaultStreamUrlFile = resolveEnvValue(
   import.meta.env.VITE_DEFAULT_STREAM_URL_FILE,
   "VITE_DEFAULT_STREAM_URL_FILE",
@@ -61,18 +77,17 @@ const defaultModelSharingRaw = resolveEnvValue(
 ).toLowerCase();
 
 export const appConfig = {
-  pipelineServerUrl:
-    import.meta.env.VITE_PIPELINE_SERVER_URL === "VITE_PIPELINE_SERVER_URL"
-      ? "http://127.0.0.1:8080"
-      : import.meta.env.VITE_PIPELINE_SERVER_URL,
-  apiUrl:
-    import.meta.env.VITE_API_URL === "VITE_API_URL"
-      ? "http://127.0.0.1:8888"
-      : import.meta.env.VITE_API_URL,
-  webrtcUrl:
-    import.meta.env.VITE_WEBRTC_URL === "VITE_WEBRTC_URL"
-      ? "http://127.0.0.1:8889"
-      : import.meta.env.VITE_WEBRTC_URL,
+  pipelineServerUrl: resolveServiceUrl(
+    import.meta.env.VITE_PIPELINE_SERVER_URL,
+    "VITE_PIPELINE_SERVER_URL",
+    8080
+  ),
+  apiUrl: resolveServiceUrl(import.meta.env.VITE_API_URL, "VITE_API_URL", 8888),
+  webrtcUrl: resolveServiceUrl(
+    import.meta.env.VITE_WEBRTC_URL,
+    "VITE_WEBRTC_URL",
+    8889
+  ),
   prometheusUrl: import.meta.env.VITE_PROMETHEUS_URL,
   systemInfo:
     import.meta.env.VITE_SYSTEM_INFO === "VITE_SYSTEM_INFO"

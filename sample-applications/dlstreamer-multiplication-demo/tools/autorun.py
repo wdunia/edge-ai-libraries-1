@@ -4,6 +4,7 @@ import socket
 import importlib
 
 browser_name = "Chrome"
+ui_host = os.environ.get("EXTERNAL_HOST") or os.environ.get("HOST_IP") or None
 
 
 def has_graphical_session() -> bool:
@@ -104,7 +105,7 @@ def open_browser(url: str):
     
     
 def main():
-    local_ip = get_ip()
+    local_ip = ui_host or get_ip()
 
     if not has_graphical_session():
         print(f"No graphical session detected. Open the UI manually: http://{local_ip}:8101")
