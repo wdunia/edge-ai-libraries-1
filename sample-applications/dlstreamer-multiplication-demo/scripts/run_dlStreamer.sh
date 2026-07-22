@@ -17,6 +17,7 @@ MAX_WAIT_SECONDS="${MAX_WAIT_SECONDS:-600}"
 FORCE_RESTART=true
 FORCE_DOWN=false
 AUTO_OPEN_BROWSER=true
+HEADLESS=false
 SOURCE_MODE="${DLSPS_SOURCE_MODE:-file}"
 DEFAULT_STREAM_URL="${DEFAULT_RTSP_SOURCE_URL:-rtsp://host.docker.internal:8554/camera0}"
 DEFAULT_STREAM_NAME="${DEFAULT_STREAM_NAME:-CAM-01}"
@@ -26,6 +27,10 @@ DEFAULT_INFERENCE_RESOLUTION="${DEFAULT_INFERENCE_RESOLUTION:-2/3}"
 DEFAULT_MODEL_SHARING="${DLSPS_SHARE_MODEL_INSTANCE:-false}"
 MODEL_PATH_IN_CONTAINER="${MODEL_PATH_IN_CONTAINER:-/home/pipeline-server/resources/models/geti/pallet_defect_detection/deployment/Detection/model/model.xml}"
 SYSTEM_INFO_TEXT="${SYSTEM_INFO_TEXT:-CPU/GPU/NPU telemetry via prebuilt images}"
+
+has_graphical_session() {
+    [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" || "${XDG_SESSION_TYPE:-}" == "x11" || "${XDG_SESSION_TYPE:-}" == "wayland" ]]
+}
 
 require_cmd() {
     command -v "$1" >/dev/null 2>&1 || {
@@ -43,7 +48,7 @@ require_file() {
 
 usage() {
     cat <<EOF
-Usage: ./run_dlStreamer.sh [--force-restart|-f] [--open-browser|--no-open-browser] [--source-mode file|rtsp] [--system-info-text text] [--help]
+Usage: ./run_dlStreamer.sh [--force-restart|-f] [--headless] [--open-browser|--no-open-browser] [--source-mode file|rtsp] [--system-info-text text] [--help]
 
 Starts the demo stack from prebuilt images. On first run it also generates
 docker/.env and builds the two custom demo images if they are missing.
@@ -52,6 +57,7 @@ Options:
   --force-restart, -f   Restart existing demo containers first (default behavior).
   --no-force-restart    Skip restarting existing demo containers before startup.
   --compose-down        Run docker compose down --remove-orphans before startup.
+  --headless            Start the demo without automatic browser launch.
   --open-browser        Force opening the browser after services are up.
   --no-open-browser     Skip opening the browser automatically.
   --source-mode         Default source shown in the UI: file (default) or rtsp.
@@ -71,6 +77,10 @@ parse_args() {
                 ;;
             --compose-down)
                 FORCE_DOWN=true
+                ;;
+            --headless)
+                HEADLESS=true
+                AUTO_OPEN_BROWSER=false
                 ;;
             --open-browser)
                 AUTO_OPEN_BROWSER=true
@@ -287,13 +297,23 @@ main() {
 
     echo "Demo is up: http://localhost:8101"
 
+    if [[ "$HEADLESS" == "true" ]]; then
+        echo "Headless mode enabled. Open http://localhost:8101 manually."
+        return 0
+    fi
+
     if [[ "$AUTO_OPEN_BROWSER" == "true" ]]; then
+        if ! has_graphical_session; then
+            echo "No graphical session detected. Skipping automatic browser launch. Open http://localhost:8101 manually."
+            return 0
+        fi
+
         cd "${TOOLS_DIR}"
         python3 -m venv .venv
         # shellcheck disable=SC1091
         source .venv/bin/activate
         pip install -r requirements.txt
-        python3 autorun.py
+        python3 autorun.py || echo "Skipping automatic browser launch. Open http://localhost:8101 manually if needed."
     fi
 }
 

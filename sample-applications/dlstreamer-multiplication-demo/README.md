@@ -53,6 +53,9 @@ When the stack is ready:
 - the browser should open automatically
 - UI: http://localhost:8101
 
+If you run the demo in a headless environment, the stack still starts normally
+and you can open the UI manually from another machine or session.
+
 ---
 
 <details>
@@ -82,6 +85,7 @@ This means you normally do **not** need to run `--force-restart` or
 
 ```bash
 ./scripts/run_dlStreamer.sh --no-open-browser
+./scripts/run_dlStreamer.sh --headless
 ./scripts/run_dlStreamer.sh --source-mode rtsp
 ./scripts/run_dlStreamer.sh --compose-down
 ./scripts/run_dlStreamer.sh --no-force-restart
@@ -89,6 +93,7 @@ This means you normally do **not** need to run `--force-restart` or
 ```
 
 - `--no-open-browser` disables automatic browser launch
+- `--headless` skips browser automation explicitly and prints the UI URL
 - `--source-mode file|rtsp` selects the default source in the UI
 - `--compose-down` runs `docker compose down --remove-orphans` first
 - `--no-force-restart` skips the default restart step
@@ -128,7 +133,8 @@ such as `apt`, `dpkg`, and `sudo`.
   ```
 
 - If automatic browser opening does not work, make sure you are using an Xorg
-  (X11) session rather than Wayland.
+  (X11) session rather than Wayland. In headless environments the demo skips
+  browser automation and prints the UI URL instead of failing.
 
 - If `install_dlStreamer.sh` added your user to the `docker` or `video` group,
   log out and back in before starting the demo.
