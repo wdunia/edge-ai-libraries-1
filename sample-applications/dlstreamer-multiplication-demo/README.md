@@ -22,9 +22,14 @@ comparing their behavior on CPU, GPU, and NPU.
 
 ## Quick start
 
-### 1. Go to the demo folder
+### 1. Clone only the folders needed for this demo
 
 ```bash
+git clone --filter=blob:none --sparse https://github.com/open-edge-platform/edge-ai-libraries.git edge-ai-libraries
+cd edge-ai-libraries
+git sparse-checkout set \
+  sample-applications/dlstreamer-multiplication-demo \
+  microservices/dlstreamer-pipeline-server/resources
 cd sample-applications/dlstreamer-multiplication-demo
 chmod +x scripts/*.sh
 ```
