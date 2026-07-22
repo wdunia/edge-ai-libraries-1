@@ -1,66 +1,108 @@
 # DL Streamer Multiplication Demo
 
-Standalone DL Streamer demo (backend + UI + supporting services).
+Standalone demo for launching multiple DL Streamer pipelines from one UI and
+comparing their behavior on CPU, GPU, and NPU.
 
-By default, the launcher starts the demo in `file` mode and opens the browser
-automatically after startup.
+## Before you start
 
-The demo currently uses shared assets from
-`microservices/dlstreamer-pipeline-server/resources`, including
-`videos/warehouse.avi` and the default `pallet_defect_detection` model.
+- **Time needed:** a few steps; first-time setup duration depends on package downloads and Docker image builds
+- **Main flow:** **3 steps**
+- **One-time setup:** run once per machine
 
-## Quick start (Linux)
+## Prerequisites
+
+- Linux host
+- this repository checked out with
+  `microservices/dlstreamer-pipeline-server/resources` available
+- support for the device(s) you want to test: CPU, GPU, NPU
+
+> `scripts/install_dlStreamer.sh` installs the usual host-side dependencies
+> automatically, so in the normal flow you usually do not need extra manual
+> setup.
+
+## Quick start
+
+### 1. Go to the demo folder
 
 ```bash
 cd sample-applications/dlstreamer-multiplication-demo
 chmod +x scripts/*.sh
-./scripts/install_dlStreamer.sh
-./scripts/run_dlStreamer.sh --force-restart
 ```
 
-When it's up:
+### 2. Run one-time setup
+
+```bash
+./scripts/install_dlStreamer.sh
+```
+
+Run this once per machine, or again only if you want to refresh the local setup.
+
+### 3. Start the demo
+
+```bash
+./scripts/run_dlStreamer.sh
+```
+
+When the stack is ready:
+
+- the browser should open automatically
 - UI: http://localhost:8101
 
 ---
 
 <details>
-<summary>Optional flags</summary>
+<summary>What the scripts do automatically</summary>
+
+`./scripts/install_dlStreamer.sh`:
+
+- installs/configures the typical host dependencies,
+- prepares Docker access,
+- builds the local demo images once.
+
+`./scripts/run_dlStreamer.sh`:
+
+- creates `docker/.env` on first run,
+- fills runtime values automatically,
+- rebuilds demo images only if they are missing,
+- restarts existing demo containers by default,
+- opens the browser automatically by default.
+
+This means you normally do **not** need to run `--force-restart` or
+`./scripts/build_demo_images.sh` manually.
+
+</details>
+
+<details>
+<summary>Common launcher options</summary>
 
 ```bash
 ./scripts/run_dlStreamer.sh --no-open-browser
 ./scripts/run_dlStreamer.sh --source-mode rtsp
-./scripts/run_dlStreamer.sh --source-mode rtsp --no-open-browser
+./scripts/run_dlStreamer.sh --compose-down
+./scripts/run_dlStreamer.sh --no-force-restart
+./scripts/run_dlStreamer.sh --system-info-text "CPU/GPU/NPU telemetry"
 ```
 
 - `--no-open-browser` disables automatic browser launch
-- `--source-mode rtsp` switches the default source from `file` to `rtsp`
+- `--source-mode file|rtsp` selects the default source in the UI
+- `--compose-down` runs `docker compose down --remove-orphans` first
+- `--no-force-restart` skips the default restart step
+- `--system-info-text <text>` changes the header text in the UI
 
 </details>
 
 <details>
-<summary>What is included</summary>
+<summary>If something is missing or you skip the install script</summary>
 
-- `app/` - demo backend source
-- `src/ui/react/` - demo frontend source
-- `scripts/` - host-side install/launcher scripts
-- `tools/` - browser automation
-- `nginx_config/` - nginx proxy config used by demo
-- `docker/docker-compose.images.yml` - standalone compose using only prebuilt images
-- `docker/.env.example` - tracked template for stack env
-- `docker/.env` - generated locally on first run
+If you do not use `scripts/install_dlStreamer.sh`, make sure at least these are
+already available:
 
-</details>
+- `docker`
+- `curl`
+- `python3`
 
-<details>
-<summary>Building the demo images manually</summary>
-
-Two images (`DLSTREAMER_DEMO_BE_IMAGE`, `DLSTREAMER_DEMO_UI_IMAGE`) are built
-automatically the first time you run the scripts above. If you want to build
-or rebuild them yourself:
-
-```bash
-./scripts/build_demo_images.sh
-```
+The install script is intended for Ubuntu/Debian-like systems and uses tools
+such as `apt`, `dpkg`, and `sudo`.
 
 </details>
 
@@ -73,16 +115,26 @@ or rebuild them yourself:
   docker compose --env-file docker/.env -f docker/docker-compose.images.yml logs -f
   ```
 
-- If startup takes longer than 10 minutes, increase the wait timeout:
+- If startup takes longer than 10 minutes:
 
   ```bash
   export MAX_WAIT_SECONDS=3600
   ./scripts/run_dlStreamer.sh
   ```
 
-- `--open-browser` requires an Xorg (X11) session, not Wayland. Check with
-  `echo "$XDG_SESSION_TYPE"`. If it prints `wayland`, log out, click your
-  username, use the gear icon, and select **Ubuntu on Xorg** before logging
-  back in.
+- If automatic browser opening does not work, make sure you are using an Xorg
+  (X11) session rather than Wayland.
+
+- If `install_dlStreamer.sh` added your user to the `docker` or `video` group,
+  log out and back in before starting the demo.
 
 </details>
+
+<details>
+<summary>Learn more</summary>
+
+For more details about the underlying pipeline service, see
+`microservices/dlstreamer-pipeline-server/README.md`.
+
+</details>
+
