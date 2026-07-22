@@ -3,13 +3,13 @@
 Standalone demo for launching multiple DL Streamer pipelines from one UI and
 comparing their behavior on CPU, GPU, and NPU.
 
-## Before you start
+## ⏱️ Before you start
 
 - **Time needed:** a few steps; first-time setup duration depends on package downloads and Docker image builds
 - **Main flow:** **3 steps**
 - **One-time setup:** run once per machine
 
-## Prerequisites
+## ✅ Prerequisites
 
 - Linux host
 - this repository checked out with
@@ -20,9 +20,9 @@ comparing their behavior on CPU, GPU, and NPU.
 > automatically, so in the normal flow you usually do not need extra manual
 > setup.
 
-## Quick start
+## 🚀 Quick start
 
-### 1. Clone only the folders needed for this demo
+### 1️⃣ Clone only the folders needed for this demo
 
 ```bash
 git clone --filter=blob:none --sparse https://github.com/open-edge-platform/edge-ai-libraries.git edge-ai-libraries
@@ -34,7 +34,7 @@ cd sample-applications/dlstreamer-multiplication-demo
 chmod +x scripts/*.sh
 ```
 
-### 2. Run one-time setup
+### 2️⃣ Run one-time setup
 
 ```bash
 ./scripts/install_dlStreamer.sh
@@ -42,7 +42,7 @@ chmod +x scripts/*.sh
 
 Run this once per machine, or again only if you want to refresh the local setup.
 
-### 3. Start the demo
+### 3️⃣ Start the demo
 
 ```bash
 ./scripts/run_dlStreamer.sh
@@ -56,7 +56,7 @@ When the stack is ready:
 ---
 
 <details>
-<summary>What the scripts do automatically</summary>
+<summary>⚙️ What the scripts do automatically</summary>
 
 `./scripts/install_dlStreamer.sh`:
 
@@ -78,7 +78,7 @@ This means you normally do **not** need to run `--force-restart` or
 </details>
 
 <details>
-<summary>Common launcher options</summary>
+<summary>🔧 Common launcher options</summary>
 
 ```bash
 ./scripts/run_dlStreamer.sh --no-open-browser
@@ -97,7 +97,7 @@ This means you normally do **not** need to run `--force-restart` or
 </details>
 
 <details>
-<summary>If something is missing or you skip the install script</summary>
+<summary>⚠️ If something is missing or you skip the install script</summary>
 
 If you do not use `scripts/install_dlStreamer.sh`, make sure at least these are
 already available:
@@ -112,7 +112,7 @@ such as `apt`, `dpkg`, and `sudo`.
 </details>
 
 <details>
-<summary>Troubleshooting</summary>
+<summary>🐛 Troubleshooting</summary>
 
 - View logs:
 
@@ -136,7 +136,7 @@ such as `apt`, `dpkg`, and `sudo`.
 </details>
 
 <details>
-<summary>Learn more</summary>
+<summary>📚 Learn more</summary>
 
 For more details about the underlying pipeline service, see
 `microservices/dlstreamer-pipeline-server/README.md`.
