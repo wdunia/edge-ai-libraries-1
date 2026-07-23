@@ -21,6 +21,8 @@ services:
     ports:
       - "8080:8080"
     environment:
+      - NO_PROXY=${CONTAINER_NO_PROXY}
+      - no_proxy=${CONTAINER_NO_PROXY}
       - MQTT_HOST=${MQTT_HOST}
       - MQTT_PORT=${MQTT_PORT}
       - ENABLE_RTSP=true
