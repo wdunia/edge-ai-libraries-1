@@ -5,7 +5,7 @@ comparing their behavior on CPU, GPU, and NPU.
 
 ## ⏱️ Before you start
 
-- **Time needed:** a few steps; first-time setup duration depends on package downloads and Docker image builds
+- **Time needed:** about **4 minutes** for a clean end-to-end deployment (clone, image build, and app startup)
 - **Main flow:** **3 steps**
 - **One-time setup:** run once per machine
 

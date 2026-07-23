@@ -91,6 +91,11 @@ async def get_pipeline_status():
     try:
         pipeline_status = await asyncio.to_thread(stream.view_pipeline)
         return JSONResponse(content={"status": "Success", "metadata": pipeline_status})
+    except TimeoutError as e:
+        raise HTTPException(
+            status_code=HTTPStatus.GATEWAY_TIMEOUT,
+            detail=f"Error getting pipeline status: {str(e)}",
+        )
     except Exception as e:
         raise HTTPException(
             status_code=HTTPStatus.INTERNAL_SERVER_ERROR,
@@ -123,6 +128,11 @@ async def add_pipeline(
             external_scheme,
         )
         return JSONResponse(content={"status": "Success", "metadata": response})
+    except TimeoutError as e:
+        raise HTTPException(
+            status_code=HTTPStatus.GATEWAY_TIMEOUT,
+            detail=f"Error adding pipeline: {str(e)}",
+        )
     except Exception as e:
         raise HTTPException(
             status_code=HTTPStatus.INTERNAL_SERVER_ERROR,

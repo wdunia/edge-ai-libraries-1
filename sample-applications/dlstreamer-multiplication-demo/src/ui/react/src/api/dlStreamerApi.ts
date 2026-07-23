@@ -328,8 +328,22 @@ export type PipelineStatusItem = {
 };
 export type PipelineStatusResponse = {
   status: string;
-  metadata: string;
+  metadata: string | PipelineStatusItem[];
 };
+
+function parsePipelineStatusMetadata(
+  metadata: PipelineStatusResponse["metadata"]
+): PipelineStatusItem[] {
+  if (Array.isArray(metadata)) {
+    return metadata;
+  }
+
+  if (typeof metadata === "string") {
+    return JSON.parse(metadata) as PipelineStatusItem[];
+  }
+
+  throw new Error("Unexpected pipeline status response format.");
+}
 
 export type DeletePipelinesResponse = {
   status: string;
@@ -350,7 +364,7 @@ export async function getPipelineStatus(): Promise<PipelineStatusItem[]> {
 
   const data = (await response.json()) as PipelineStatusResponse;
 
-  return JSON.parse(data.metadata) as PipelineStatusItem[];
+  return parsePipelineStatusMetadata(data.metadata);
 }
 
 export async function deleteAllPipelines(streamIds: string[]): Promise<void> {

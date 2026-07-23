@@ -369,11 +369,25 @@ class Stream:
             f"model_instance_id={resolved_model_instance_id}"
         )
 
-        response = requests.post(
-            url, json=payload, headers={"Content-Type": "application/json"},
-            timeout=REQUEST_TIMEOUT,
-        )
-        response.raise_for_status()
+        try:
+            response = requests.post(
+                url,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=REQUEST_TIMEOUT,
+            )
+            response.raise_for_status()
+        except requests.exceptions.Timeout as exc:
+            raise TimeoutError(
+                f"Timed out after {REQUEST_TIMEOUT}s while creating pipeline {pipeline_version}"
+            ) from exc
+        except requests.exceptions.HTTPError as exc:
+            status_code = exc.response.status_code if exc.response is not None else None
+            if status_code in {408, 504}:
+                raise TimeoutError(
+                    f"Pipeline server timed out while creating pipeline {pipeline_version}"
+                ) from exc
+            raise
 
         stream_id = response.text.replace('"', '').strip()
         with self._lock:
@@ -461,10 +475,31 @@ class Stream:
         response = requests.get(url, timeout=REQUEST_TIMEOUT)
         return response.text
 
-    def view_pipeline(self) -> str:
+    def view_pipeline(self) -> list[dict[str, Any]]:
         url = f"{self._base_url}/pipelines/status"
-        response = requests.get(url, timeout=REQUEST_TIMEOUT)
-        return response.text
+        try:
+            response = requests.get(url, timeout=REQUEST_TIMEOUT)
+            response.raise_for_status()
+        except requests.exceptions.Timeout as exc:
+            raise TimeoutError(
+                f"Timed out after {REQUEST_TIMEOUT}s while fetching pipeline status"
+            ) from exc
+        except requests.exceptions.HTTPError as exc:
+            status_code = exc.response.status_code if exc.response is not None else None
+            if status_code in {408, 504}:
+                raise TimeoutError("Pipeline server timed out while fetching pipeline status") from exc
+            raise
+
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            logger.error("Invalid pipeline status response from pipeline server: %s", response.text)
+            raise ValueError("Pipeline server returned a non-JSON status response") from exc
+
+        if not isinstance(payload, list):
+            raise ValueError("Pipeline server returned an unexpected status payload")
+
+        return payload
 
     def _get_pipeline_state(self, stream_id: str) -> str | None:
         url = f"{self._base_url}/pipelines/status"
