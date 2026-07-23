@@ -130,6 +130,8 @@ services:
     environment:
       - ip=${ip}
       - HOST_IP=${ip}
+      - NO_PROXY=${CONTAINER_NO_PROXY}
+      - no_proxy=${CONTAINER_NO_PROXY}
       - METRICS_ENDPOINT=http://metrics-manager:9273/metrics
       - PIPELINE_SERVER_TIMEOUT=${PIPELINE_SERVER_TIMEOUT:-30}
       - PIPELINE_DELETE_TIMEOUT=${PIPELINE_DELETE_TIMEOUT:-8}
