@@ -29,11 +29,26 @@ install_gpg_keyring() {
     sudo chmod 644 "$output_path"
 }
 
+# Must run before any repository is configured: install_gpg_keyring() needs curl
+# and gpg, which the main package installation below would only provide later.
+ensure_bootstrap_packages() {
+    if command_exists curl && command_exists gpg; then
+        log "BOOTSTRAP DEPENDENCIES ALREADY AVAILABLE: SKIPPING"
+        return
+    fi
+
+    log "INSTALLING BOOTSTRAP DEPENDENCIES (ca-certificates, curl, gnupg)"
+    sudo apt update
+    sudo apt install -y ca-certificates curl gnupg
+}
+
 main() {
     local need_apt_update=false
     local need_chrome_install=false
     local need_docker_install=false
     local need_base_packages_install=false
+
+    ensure_bootstrap_packages
 
     if command_exists google-chrome || command_exists google-chrome-stable; then
         log "GOOGLE CHROME ALREADY INSTALLED: SKIPPING"

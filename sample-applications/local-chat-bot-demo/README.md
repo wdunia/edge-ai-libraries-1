@@ -35,6 +35,33 @@ before the health check passes. Converted models are cached in `.cache/ovms`
 **outside** the working copy, so every later start (including `--clean`) reuses
 them.
 
+## Prompt console
+
+The demo ends by arranging three Chrome windows: ChatGPT on the left, the local
+chat bot on the right and the prompt console across the bottom of the screen.
+The console sends one prompt to both chatbots at the same time and offers:
+
+| Control | Effect |
+|---------|--------|
+| `Send` | submits the prompt to both chatbots in parallel (Enter sends, Shift+Enter adds a line) |
+| `Example prompts` | fills the input with one of the prepared demo questions |
+| `Rearrange windows` | recomputes the layout for the current screen size and restores every window |
+| `New conversation` | starts a fresh conversation in both chatbots |
+| `Shut down demo` | closes the browser windows and ends the tool |
+
+The console is served by `tools/autorun.py` itself on `127.0.0.1:8102`
+(`PROMPT_CONSOLE_PORT`). It is bound to the loopback interface and every
+state-changing request needs a per-run token, because it drives the browsers.
+
+Use `Rearrange windows` whenever the arrangement gets disturbed - a window was
+dragged, maximised, snapped, closed, or the screen resolution changed. It only
+restores geometry; conversations are left alone, and a window that was closed is
+reopened. Closing the console window itself is also safe: a watchdog brings it
+back and the typed prompt is restored from the browser's local storage.
+
+ChatGPT runs with a persistent Chrome profile (`.cache/chrome-gpt`), so the
+login survives demo restarts. Use `--reset-chatgpt-profile` to drop it.
+
 Everything runs as background Docker containers:
 
 ```bash
@@ -55,7 +82,9 @@ Everything runs as background Docker containers:
   --strict \                # fail when upstream drifted from the baseline
   --skip-install \          # do not touch host packages
   --skip-prepare \          # reuse the working copy as-is
-  --no-autorun              # do not start the prompt submission CLI
+  --cli \                   # type prompts in the terminal, no console window
+  --reset-chatgpt-profile \ # forget the saved ChatGPT login
+  --no-autorun              # do not start the prompt submission tool
 ```
 
 Defaults live in [`scripts/demo.env`](scripts/demo.env) and can be overridden by
@@ -141,11 +170,13 @@ upstream updates into this branch does not create conflicts.
   `export MAX_WAIT_SECONDS=3600`
 - Model conversion may fail on low-memory hosts; increase swap and re-run
   (already converted models are reused from `.cache/ovms`).
-- The prompt submission tool opens two browser windows and requires an Xorg
+- The prompt submission tool opens three browser windows and requires an Xorg
   (X11) session - check with `echo "$XDG_SESSION_TYPE"`; if it prints `wayland`,
   log out and pick **Ubuntu on Xorg** (gear icon on the login screen).
+- If the windows end up in the wrong place, press `Rearrange windows` in the
+  prompt console (or type `layout` in `--cli` mode).
 - The tool types into ChatGPT only when that window is logged in and the
-  composer is visible. If it reports `ChatGPT prompt box not found`, log in in
+  composer is visible. If it reports `no visible prompt field found`, log in in
   the opened window and resend the prompt; the local chatbot is unaffected
   because both submissions are independent.
 - The demo does not configure proxies or firewall rules on the host.

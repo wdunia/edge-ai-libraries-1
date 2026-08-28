@@ -25,6 +25,7 @@ STRICT_BASELINE=false
 SKIP_INSTALL=false
 SKIP_PREPARE=false
 RUN_AUTORUN=true
+AUTORUN_ARGS=()
 TARGET_DEVICE="${CHATQNA_TARGET_DEVICE:-${DEVICE:-}}"
 HF_TOKEN_OVERRIDE="${HUGGINGFACEHUB_API_TOKEN:-}"
 
@@ -41,7 +42,10 @@ Options:
   --hf-token <token>    Hugging Face API token.
   --skip-install        Do not run scripts/install_prereqs.sh.
   --skip-prepare        Reuse the existing working copy as-is.
-  --no-autorun          Do not start the prompt submission CLI at the end.
+  --no-autorun          Do not start the prompt submission tool at the end.
+  --cli                 Read prompts from the terminal instead of the browser console.
+  --reset-chatgpt-profile
+                        Drop the saved ChatGPT login before starting the browsers.
   --help, -h            Show this message.
 
 Restarting is safe: downloaded/converted models live in a persistent cache and
@@ -64,6 +68,8 @@ parse_args() {
             --skip-install) SKIP_INSTALL=true ;;
             --skip-prepare) SKIP_PREPARE=true ;;
             --no-autorun) RUN_AUTORUN=false ;;
+            --cli) AUTORUN_ARGS+=(--cli) ;;
+            --reset-chatgpt-profile) AUTORUN_ARGS+=(--reset-chatgpt-profile) ;;
             --device)
                 shift; [[ $# -gt 0 ]] || { echo "Missing value for --device" >&2; usage >&2; exit 1; }
                 TARGET_DEVICE="$1" ;;
@@ -128,6 +134,8 @@ configure_runtime_env() {
     export COMPOSE_PROJECT_NAME
     # Persistent model cache - consumed by the patched setup.sh and by compose.
     export VOLUME_OVMS="${OVMS_MODELS_DIR}"
+    # Consumed by tools/autorun.py.
+    export PROMPT_CONSOLE_PORT PROMPT_CONSOLE_HEIGHT_PCT CHATGPT_PROFILE_DIR
 }
 
 start_metrics_manager() {
@@ -374,13 +382,13 @@ main() {
     info "Stop:    ${DEMO_ROOT}/scripts/stop_local_chat_bot.sh"
 
     if [[ "${RUN_AUTORUN}" == "true" ]]; then
-        log "STARTING PROMPT SUBMISSION CLI TOOL"
+        log "STARTING PROMPT SUBMISSION TOOL"
         cd "${DEMO_ROOT}/tools"
         python3 -m venv .venv
         # shellcheck disable=SC1091
         source .venv/bin/activate
         pip install -q -r requirements.txt
-        python3 autorun.py
+        python3 autorun.py "${AUTORUN_ARGS[@]+"${AUTORUN_ARGS[@]}"}"
     fi
 }
 

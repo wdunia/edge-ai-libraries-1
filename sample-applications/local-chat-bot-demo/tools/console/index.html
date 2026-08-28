@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="demo-token" content="__DEMO_TOKEN__" />
+    <title>Local Chat Bot demo console</title>
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+
+<body>
+    <div class="console">
+        <header class="toolbar">
+            <select id="examples" class="examples" aria-label="Example prompts">
+                <option value="">Example prompts...</option>
+            </select>
+
+            <div class="statuses">
+                <span class="pill" id="status-chatgpt" data-state="idle">ChatGPT: idle</span>
+                <span class="pill" id="status-local" data-state="idle">Local Chat Bot: idle</span>
+            </div>
+
+            <div class="actions">
+                <button type="button" id="relayout" class="secondary">Rearrange windows</button>
+                <button type="button" id="reset" class="secondary">New conversation</button>
+                <button type="button" id="shutdown" class="danger">Shut down demo</button>
+            </div>
+        </header>
+
+        <form class="composer" id="composer">
+            <textarea id="prompt" rows="3" autofocus
+                placeholder="Type a prompt for both chatbots. Enter sends, Shift+Enter adds a new line."></textarea>
+            <button type="submit" id="send" class="primary">Send</button>
+        </form>
+
+        <p class="notice" id="notice"></p>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>
