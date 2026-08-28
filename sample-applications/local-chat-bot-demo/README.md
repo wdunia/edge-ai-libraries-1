@@ -25,6 +25,17 @@ You will be asked for a Hugging Face token
 ([how to get one](https://huggingface.co/docs/hub/security-tokens)) and a target
 device (`CPU` or `GPU`; NPU is not supported by the sample application).
 
+The device is asked for **once**: it is stored in `.cache/demo.local.env` and
+reused by every later start. Use `--reconfigure` to be asked again, or delete
+that file. A value passed on the command line or exported into the environment
+always wins over the saved one.
+
+The token is **never stored**. It is only used to download the models, so once
+they sit in `.cache/ovms` the prompt is skipped altogether. After the first run
+the demo therefore comes up without any input - for example from a boot-time
+autostart entry. Without a terminal and with an empty model cache the launcher
+stops with a message instead of waiting for input.
+
 When it is up:
 
 - UI: <http://localhost:8101>
@@ -89,7 +100,8 @@ Everything runs as background Docker containers:
 ```bash
 ./scripts/run_local_chat_bot.sh \
   --device GPU \            # skip the device prompt
-  --hf-token <token> \      # skip the token prompt
+  --hf-token <token> \      # token for the model download (not stored)
+  --reconfigure \           # ask for the device again, overwrite the saved answer
   --no-restart \            # keep running containers (default: restart them)
   --clean \                 # rebuild the working copy (models are kept)
   --strict \                # fail when upstream drifted from the baseline

@@ -25,6 +25,7 @@ STRICT_BASELINE=false
 SKIP_INSTALL=false
 SKIP_PREPARE=false
 RUN_AUTORUN=true
+RECONFIGURE=false
 AUTORUN_ARGS=()
 TARGET_DEVICE="${CHATQNA_TARGET_DEVICE:-${DEVICE:-}}"
 HF_TOKEN_OVERRIDE="${HUGGINGFACEHUB_API_TOKEN:-}"
@@ -39,7 +40,9 @@ Options:
                         overlay/, patches/ or generators/). Converted models are kept.
   --strict              Fail if upstream drifted from the recorded baseline.
   --device CPU|GPU      Target device for OVMS conversion/inference.
-  --hf-token <token>    Hugging Face API token.
+  --hf-token <token>    Hugging Face API token (only needed while models are
+                        still missing from the cache).
+  --reconfigure         Ask for the device again and overwrite the saved answer.
   --skip-install        Do not run scripts/install_prereqs.sh.
   --skip-prepare        Reuse the existing working copy as-is.
   --no-autorun          Do not start the prompt submission tool at the end.
@@ -47,6 +50,12 @@ Options:
   --reset-chatgpt-profile
                         Drop the saved ChatGPT login before starting the browsers.
   --help, -h            Show this message.
+
+The device is asked for once and stored in the file named by DEMO_CONFIG_FILE
+(scripts/demo.env). The Hugging Face token is never stored: it is only needed to
+download the models, so once they are in the cache it is not asked for again.
+An unattended start (e.g. at boot) therefore runs without any input.
+Precedence: command line > environment > saved answer.
 
 Restarting is safe: downloaded/converted models live in a persistent cache and
 are reused (see OVMS_MODELS_DIR in scripts/demo.env).
@@ -68,6 +77,7 @@ parse_args() {
             --skip-install) SKIP_INSTALL=true ;;
             --skip-prepare) SKIP_PREPARE=true ;;
             --no-autorun) RUN_AUTORUN=false ;;
+            --reconfigure) RECONFIGURE=true ;;
             --cli) AUTORUN_ARGS+=(--cli) ;;
             --reset-chatgpt-profile) AUTORUN_ARGS+=(--reset-chatgpt-profile) ;;
             --device)
@@ -93,16 +103,65 @@ validate_device() {
     esac
 }
 
-prompt_for_token_if_needed() {
-    if [[ -z "${HF_TOKEN_OVERRIDE}" ]]; then
-        read -r -p "Provide a HuggingFace API token for model download: " HF_TOKEN_OVERRIDE
+load_saved_answers() {
+    if [[ "${RECONFIGURE}" == "true" ]]; then
+        TARGET_DEVICE=""
+        return 0
     fi
+    [[ -f "${DEMO_CONFIG_FILE}" ]] || return 0
+
+    # Loaded into a dedicated name, so that a value given on the command line or
+    # exported into the environment still wins over the saved answer.
+    # shellcheck disable=SC1090
+    source "${DEMO_CONFIG_FILE}"
+    [[ -n "${TARGET_DEVICE}" ]] || TARGET_DEVICE="${SAVED_DEVICE:-}"
+    info "Using the saved configuration: ${DEMO_CONFIG_FILE}"
+}
+
+save_answers() {
+    mkdir -p "$(dirname "${DEMO_CONFIG_FILE}")"
+    {
+        echo "# Local Chat Bot demo - answer from the first run, reused on every later"
+        echo "# start so that the demo can come up unattended. Rewritten by --reconfigure."
+        echo "# The Hugging Face token is deliberately NOT stored here."
+        printf 'SAVED_DEVICE=%q\n' "${TARGET_DEVICE}"
+    } > "${DEMO_CONFIG_FILE}.tmp"
+    mv "${DEMO_CONFIG_FILE}.tmp" "${DEMO_CONFIG_FILE}"
+    info "Configuration saved: ${DEMO_CONFIG_FILE}"
+}
+
+require_terminal() {
+    [[ -t 0 ]] || die "$1 is not configured and there is no terminal to ask on. Run \
+${DEMO_ROOT}/scripts/run_local_chat_bot.sh once interactively (or pass --hf-token/--device)."
+}
+
+models_are_cached() {
+    # setup.sh copies every converted model to ${VOLUME_OVMS}/models/<model name>.
+    local model
+    for model in "${LLM_MODEL}" "${EMBEDDING_MODEL_NAME}"; do
+        [[ -n "$(find "${OVMS_MODELS_DIR}/models/${model}" -mindepth 1 -print -quit 2>/dev/null)" ]] \
+            || return 1
+    done
+}
+
+prompt_for_token_if_needed() {
+    [[ -z "${HF_TOKEN_OVERRIDE}" ]] || return 0
+    # The token is only used to download the models, so a cached model set makes
+    # it unnecessary - this is what lets the demo start unattended.
+    if models_are_cached; then
+        info "Models already converted in ${OVMS_MODELS_DIR} - no Hugging Face token needed."
+        return 0
+    fi
+
+    require_terminal "Hugging Face API token"
+    read -r -p "Provide a HuggingFace API token for model download: " HF_TOKEN_OVERRIDE
     [[ -n "${HF_TOKEN_OVERRIDE}" ]] || die "Hugging Face API token cannot be empty."
 }
 
 prompt_for_device_if_needed() {
     while true; do
         if [[ -z "${TARGET_DEVICE}" ]]; then
+            require_terminal "Target device"
             read -r -p "Please enter a target device (CPU, GPU): " TARGET_DEVICE
         fi
         TARGET_DEVICE="${TARGET_DEVICE^^}"
@@ -315,8 +374,10 @@ main() {
     require_cmd python3
 
     log "CONFIGURATION"
+    load_saved_answers
     prompt_for_token_if_needed
     prompt_for_device_if_needed
+    save_answers
 
     local ip
     ip="$(hostname -I | awk '{print $1}')"
