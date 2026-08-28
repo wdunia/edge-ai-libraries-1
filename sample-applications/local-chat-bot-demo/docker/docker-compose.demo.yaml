@@ -1,0 +1,21 @@
+# Local Chat Bot demo - compose override.
+#
+# Merged on top of the pristine docker-compose.yaml of the sample application:
+#   docker compose -f <work>/docker-compose.yaml -f docker/docker-compose.demo.yaml up --build
+#
+# It only adds what the demo needs:
+#   * demo-specific image tags, so official chatqna images are never shadowed
+#   * HOST_IP        - used by the backend metrics collector to reach metrics-manager
+#   * APP_METRICS_URL - consumed by the UI entrypoint when substituting VITE_* placeholders
+
+services:
+  chatqna:
+    image: ${DEMO_BE_IMAGE:-local-chat-bot-be:local}
+    environment:
+      - HOST_IP=${HOST_IP}
+
+  chatqna-ui:
+    image: ${DEMO_UI_IMAGE:-local-chat-bot-ui:local}
+    environment:
+      - APP_METRICS_URL=${APP_METRICS_URL}
+

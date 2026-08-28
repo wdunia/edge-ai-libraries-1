@@ -1,0 +1,133 @@
+// Copyright (C) 2024 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
+@import "../../styles/styles";
+
+.spacer {
+    flex: 1 1 auto;
+}
+
+.conversationWrapper {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    background: #0f1b43;
+}
+
+.conversationContent {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.conversationContentMessages {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: #0f1b43;
+}
+
+.conversationToolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-height: 44px;
+    padding: 8px 14px;
+    border-bottom: 1px solid #1b2652;
+    background: #0f1b43;
+}
+
+.historyContainer {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 18px 22px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.conversationActions {
+    padding: 10px 14px;
+    background: #0f1b43;
+    border-top: 1px solid #1b2652;
+    flex-shrink: 0;
+}
+
+.promptRoot {
+    width: 100%;
+}
+
+.promptInput {
+    min-height: 44px !important;
+    background-color: #141f45 !important;
+    border: 1px solid #1b2652 !important;
+    border-radius: 10px !important;
+    color: #c8d4f0 !important;
+    font-size: 13px !important;
+    padding: 10px 48px 10px 12px !important;
+    box-shadow: none !important;
+
+    &::placeholder {
+        color: #445070 !important;
+    }
+
+    &:focus,
+    &:focus-within {
+        border-color: #00a3f6 !important;
+        outline: none !important;
+    }
+}
+
+.promptSection {
+    width: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sendButton {
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    background-color: #00a3f6 !important;
+    border-radius: 7px !important;
+
+    &:hover {
+        background-color: #159ee4 !important;
+    }
+}
+
+.emptyState {
+    flex: 1;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    text-align: center;
+
+    padding: 24px;
+}
+
+.emptyStateTitle {
+    font-size: 28px;
+    font-weight: 700;
+    color: #ffffff;
+
+    margin-bottom: 10px;
+
+    letter-spacing: -0.5px;
+}
+
+.emptyStateSubtitle {
+    font-size: 14px;
+    color: #6f7ca8;
+
+    max-width: 420px;
+    line-height: 1.5;
+}

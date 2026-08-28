@@ -1,0 +1,63 @@
+diff --git a/app/chain.py b/app/chain.py
+index 988fb86..2409292 100644
+--- a/app/chain.py
++++ b/app/chain.py
+@@ -88,24 +88,28 @@ retriever = EGAIVectorStoreRetriever(
+ 
+ # Define our prompt
+ template = """
+-Use the following pieces of context from retrieved
+-dataset and prior conversation history to answer the question. 
+-Do not make up an answer if there is no context provided to help answer it.
+-
+-Conversation history:
+----------
+-{history}
+----------
+-
+-Context:
+----------
+-{context}
+-
+----------
+-Question: {question}
+----------
+-
+-Answer:
++<|start|>system<|message|>
++Reasoning: none
++Do not output your reasoning process, only the final output.
++SYSTEM CONSTRAINT: 
++You have no access to the internet.
++Don't hesitate to ask questions when in doubt, especially when question is unclear.
++If You don't know the answer just say it.
++IMPORTANT: Format all responses using Markdown for clear, readable communication:
++
++**Example:**
++## Topic Title 
++Here's regular text with
++**important points** and *emphasized terms.*
++### Key Benefits:
++- **Benefit 1:** Clear description
++- **Benefit 2:** Another point
++> 💡 **Pro Tip:** This makes information stand out!
++Always prioritize clarity and scannability in your responses.
++<|end|><|start|>user<|message|>
++Conversation history: {history}
++prompt: {question}
++<|end|><|start|>assistant
+ """
+ 
+ 
+@@ -267,4 +271,10 @@ async def process_chunks(conversation_messages, max_tokens):
+     }
+ 
+     async for log in chain.astream(chain_input):
+-        yield f"data: {log}\n\n"
++        if log == "\n":
++            yield f"data: \\n\\n\n\n"
++        elif log.endswith("\n"):
++            yield f"data: {log}\n\n"
++            yield f"data: \\n\\n\n\n"
++        else:
++            yield f"data: {log}\n\n"

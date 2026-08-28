@@ -1,0 +1,17 @@
+# sha256 (LF-normalized) of the BASELINE version of every overlay target.
+# 'absent' means the file does not exist upstream (demo-only file).
+# Regenerate with: scripts/make_patches.sh --refresh-manifest
+absent  app/metrics.py
+09fbb3071f40355b2e6e0863d61108e94b8846bc1885a51d860aff1266ba96e7  ui/react/src/App.scss
+ddfdba6a58a1e6f7dc1ba4576ff8fba1264ff4726e699a5908f4b0e0e5ca05bc  ui/react/src/App.tsx
+5b7b8407e539646b375781b35a3202ab517bb3dee79809f05e5a98a2aac3ceb8  ui/react/src/components/Message/conversationMessage.module.scss
+b4811f8be2b526fce424a6706b47ac1d76f416210fbaa67b1a8e089ddba6580d  ui/react/src/components/Message/conversationMessage.tsx
+absent  ui/react/src/components/Metrics/GpuMetricCard.tsx
+absent  ui/react/src/components/Metrics/MetricCard.tsx
+absent  ui/react/src/components/Metrics/MetricsPanel.module.scss
+absent  ui/react/src/components/Metrics/MetricsPanel.tsx
+absent  ui/react/src/components/Metrics/UseMetricsStream.ts
+absent  ui/react/src/components/Navbar/Navbar.module.scss
+absent  ui/react/src/components/Navbar/Navbar.tsx
+9cf9e6777e349d7d6b0e390ca9b9e2a32c9f10faf18d88a8be51187afb705b00  ui/react/src/styles/components/context.module.scss
+c9682cfab0a3076105f23953b16a67e2b3d7091b287087b39514f2e04059e769  ui/react/src/styles/components/conversation.module.scss

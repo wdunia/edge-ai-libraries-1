@@ -1,0 +1,78 @@
+// Copyright (C) 2026 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
+@import "../layout/flex";
+@import "../components/content.scss";
+
+.contextWrapper {
+    width: 200px;
+    flex-shrink: 0;
+    background: #070d2d;
+    border-right: 1px solid #1b2652;
+
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.sidebarHead {
+    padding: 12px 10px;
+    border-bottom: 1px solid #1b2652;
+    flex-shrink: 0;
+}
+
+.newChatButton {
+    height: 31px;
+    background: #00a3f6;
+    color: #ffffff;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 500;
+
+    &:hover {
+        background: #159ee4;
+    }
+}
+
+.contextList {
+    padding: 6px 5px;
+    min-width: 0;
+}
+
+.contextListItem {
+    min-height: 30px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin: 1px 0;
+
+    cursor: pointer;
+    color: #8899cc;
+    font-size: 11px;
+
+    overflow: hidden;
+    min-width: 0;
+
+    &:hover {
+        background: #141f45;
+    }
+
+    &[data-active] {
+        background: #1b2652;
+        color: #e0e8ff;
+    }
+}
+
+.contextItemName {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1;
+}
+
+.contextScrollArea {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-width: 0;
+}

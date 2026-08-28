@@ -1,0 +1,5 @@
+# The demo runs on Linux hosts - keep executable content LF-only.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+

@@ -1,0 +1,13 @@
+diff --git a/pyproject.toml b/pyproject.toml
+index 94036cc..741eba8 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -20,6 +20,8 @@ opentelemetry-sdk = "1.39.1"
+ opentelemetry-instrumentation-fastapi = "0.60b1"
+ openlit = "1.42.0"
+ httpx = "0.27.2"
++psutil = "^7.2.2"
++
+ 
+ [tool.poetry.group.dev.dependencies]
+ pytest = "^8.3.3"

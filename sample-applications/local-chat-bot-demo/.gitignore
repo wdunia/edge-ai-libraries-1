@@ -1,0 +1,5 @@
+.work/
+.cache/
+logs/
+.venv/
+__pycache__/
