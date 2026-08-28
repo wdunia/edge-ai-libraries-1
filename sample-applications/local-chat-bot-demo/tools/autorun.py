@@ -10,6 +10,7 @@ import os
 import shutil
 import signal
 import socket
+import subprocess
 import threading
 import time
 from pathlib import Path
@@ -43,6 +44,18 @@ CHATGPT_PROFILE_DIR = Path(
 CONSOLE_MIN_HEIGHT = 180
 CONSOLE_MAX_HEIGHT = 320
 CONSOLE_WATCHDOG_INTERVAL = 2.0
+
+# Chrome places a window by its content, so the console's title bar is drawn above
+# the rectangle it was given and covers the chats. Keeping the chats above the
+# console tucks that bar underneath them instead of wasting screen space on it.
+ALWAYS_ON_TOP_TOOL = "wmctrl"
+WINDOW_TITLE_SETTLE = 0.4
+
+# A window that cannot take the position it was given (a system panel holds it away
+# from the top of the screen) has to be resized, or it runs over its neighbour.
+RECT_SETTLE_DELAY = 0.35
+RECT_CORRECTION_PASSES = 3
+RECT_TOLERANCE = 2
 
 # Ordered by priority: the first selector that matches a visible element wins.
 # A single "a, b, c" selector cannot be used here, because CSS lists return the
@@ -134,6 +147,7 @@ class ManagedWindow:
         self.url = url
         self.profile_dir = profile_dir
         self.app_mode = app_mode
+        self.app_mode_active = app_mode
         self.rect = (0, 0, 1280, 800)
         self.driver = None
         # Per-window lock, so a prompt still reaches both chatbots in parallel.
@@ -146,6 +160,8 @@ class ManagedWindow:
         options.add_argument(f"--window-size={width},{height}")
         options.add_argument("--no-first-run")
         options.add_argument("--no-default-browser-check")
+        # Drops the "Chrome is being controlled by automated test software" infobar.
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
         if self.profile_dir is not None:
             options.add_argument(f"--user-data-dir={self.profile_dir}")
         if app_mode:
@@ -167,11 +183,13 @@ class ManagedWindow:
         try:
             try:
                 self.driver = self._start(self.app_mode)
+                self.app_mode_active = self.app_mode
             except WebDriverException as exc:
                 if not self.app_mode:
                     raise
                 print(f"{YELLOW}[{self.label}] --app window failed ({exc}); using a normal window.{RESET}")
                 self.driver = self._start(app_mode=False)
+                self.app_mode_active = False
         finally:
             signal.signal(signal.SIGINT, previous_sigint_handler)
 
@@ -196,9 +214,103 @@ class ManagedWindow:
             return False
 
     def apply_rect(self):
-        x, y, width, height = self.rect
+        """Place the window, then correct it until its content covers the target area."""
         restore_window_state(self.driver)
+        target = self.rect
+        requested = target
+        self._request_rect(requested)
+        # Only an --app window is worth correcting; anything else has a toolbar whose
+        # height would be mistaken for a displacement.
+        if not self.app_mode_active:
+            return
+
+        for attempt in range(RECT_CORRECTION_PASSES + 1):
+            time.sleep(RECT_SETTLE_DELAY)
+            try:
+                content = self.content_rect()
+            except WebDriverException:
+                return
+            if not any(abs(c - t) > RECT_TOLERANCE for c, t in zip(content, target)):
+                return
+            if attempt == RECT_CORRECTION_PASSES:
+                # A panel eating into the top is expected; only edges that run over a
+                # neighbouring window are worth reporting.
+                far = (content[0] + content[2], content[1] + content[3])
+                wanted = (target[0] + target[2], target[1] + target[3])
+                if any(abs(f - w) > RECT_TOLERANCE for f, w in zip(far, wanted)):
+                    print(f"{YELLOW}[{self.label}] content sits at {content}, wanted {target}.{RESET}")
+                return
+
+            # A miss that survives the first correction means the move was refused,
+            # so keep the pinned edge and match the far edge by resizing instead.
+            x, width = correct_axis(
+                requested[0], requested[2], content[0], content[2], target[0], target[2],
+                pinned=attempt > 0 and abs(content[0] - target[0]) > RECT_TOLERANCE,
+            )
+            y, height = correct_axis(
+                requested[1], requested[3], content[1], content[3], target[1], target[3],
+                pinned=attempt > 0 and abs(content[1] - target[1]) > RECT_TOLERANCE,
+            )
+            requested = (x, y, width, height)
+            self._request_rect(requested)
+
+    def _request_rect(self, rect):
+        x, y, width, height = rect
         self.driver.set_window_rect(x=x, y=y, width=width, height=height)
+
+    def content_rect(self):
+        """Where the page itself ended up. This is the part that has to tile: the title
+        bar sits outside it and is hidden by the windows kept on top."""
+        values = self.driver.execute_script(
+            "return [window.screenX, window.screenY, window.innerWidth, window.innerHeight];"
+        )
+        return tuple(int(value) for value in values)
+
+    def keep_on_top(self) -> bool:
+        """Ask the window manager to keep this window above the others. The window is
+        addressed by a temporary unique title, because the window manager knows nothing
+        about the WebDriver session."""
+        if shutil.which(ALWAYS_ON_TOP_TOOL) is None:
+            return False
+
+        marker = f"demo-{self.key}-{os.getpid()}"
+        try:
+            original = self.driver.title
+            self.driver.execute_script("document.title = arguments[0];", marker)
+        except WebDriverException:
+            return False
+
+        time.sleep(WINDOW_TITLE_SETTLE)
+        try:
+            result = subprocess.run(
+                [ALWAYS_ON_TOP_TOOL, "-F", "-r", marker, "-b", "add,above"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+        except (OSError, subprocess.SubprocessError):
+            result = None
+        finally:
+            try:
+                self.driver.execute_script("document.title = arguments[0];", original)
+            except WebDriverException:
+                pass
+
+        return result is not None and result.returncode == 0
+
+    def outer_rect(self):
+        rect = self.driver.get_window_rect()
+        return (int(rect["x"]), int(rect["y"]), int(rect["width"]), int(rect["height"]))
+
+
+def correct_axis(origin, size, content_origin, content_size, target_origin, target_size, pinned):
+    """Return the origin and size to request next, given where the content landed. A
+    pinned axis cannot be moved, so the far edge is matched by resizing instead."""
+    before = content_origin - origin
+    after = origin + size - content_origin - content_size
+    if pinned:
+        return origin, target_origin + target_size - content_origin + before + after
+    return target_origin - before, target_size + before + after
 
 
 def find_composer(driver, selectors, label: str, timeout: int = 20):
@@ -239,6 +351,20 @@ def click_new_chat(driver) -> bool:
     return False
 
 
+def inspect_geometry(window):
+    """Print the target, Chrome's own window rect and the viewport side by side, so a
+    window that lands in the wrong place can be diagnosed instead of guessed at."""
+    viewport = window.driver.execute_script(
+        "return [window.screenX, window.screenY, window.innerWidth, window.innerHeight,"
+        " window.outerWidth, window.outerHeight, window.devicePixelRatio];"
+    )
+    print(
+        f"  {window.label:<16} target={window.rect} chrome={window.outer_rect()} "
+        f"screen=({viewport[0]}, {viewport[1]}) inner=({viewport[2]}, {viewport[3]}) "
+        f"outer=({viewport[4]}, {viewport[5]}) dpr={viewport[6]}"
+    )
+
+
 def inspect_composers(driver, label: str):
     """Print every input-like element, so selectors can be verified against the real page."""
     probes = ("textarea", "div[contenteditable='true']", "[id*='prompt']", "[data-testid*='prompt']")
@@ -271,10 +397,10 @@ class Demo:
         self.server = None
         self.console = None
         self.chatgpt = ManagedWindow(
-            "chatgpt", "ChatGPT", CHATGPT_URL, profile_dir=CHATGPT_PROFILE_DIR
+            "chatgpt", "ChatGPT", CHATGPT_URL, profile_dir=CHATGPT_PROFILE_DIR, app_mode=True
         )
         self.local = ManagedWindow(
-            "local", "Local Chat Bot", f"http://{get_ip()}:{LOCAL_UI_PORT}"
+            "local", "Local Chat Bot", f"http://{get_ip()}:{LOCAL_UI_PORT}", app_mode=True
         )
         self.selectors = {"chatgpt": GPT_PROMPT_SELECTORS, "local": LOCAL_PROMPT_SELECTORS}
         self._watchdog_stop = threading.Event()
@@ -327,6 +453,7 @@ class Demo:
                     print(f"{YELLOW}Could not reopen the prompt console: {exc}{RESET}")
                     print(f"{YELLOW}Open it manually: {self.server.url}{RESET}")
                     return
+            self._raise_chats()  # the fresh console window came up above the chats
 
     # --- layout --------------------------------------------------------------
 
@@ -341,7 +468,10 @@ class Demo:
         """Restore the window arrangement without touching the conversations."""
         width, height = self._assign_rects()
         reopened = []
-        for window in self.windows:
+
+        # The console goes first, so raising the chats afterwards hides its title bar.
+        ordered = ([self.console] if self.console is not None else []) + list(self.chats)
+        for window in ordered:
             with window.lock:
                 if window.is_alive():
                     window.apply_rect()
@@ -352,7 +482,17 @@ class Demo:
         detail = f"Windows rearranged for {width}x{height}"
         if reopened:
             detail += f"; reopened: {', '.join(reopened)}"
+        if self.console is not None and not self._raise_chats():
+            detail += f"; install {ALWAYS_ON_TOP_TOOL} to keep the chats on top"
         return detail
+
+    def _raise_chats(self) -> bool:
+        raised = True
+        for window in self.chats:
+            with window.lock:
+                if window.is_alive():
+                    raised = window.keep_on_top() and raised
+        return raised
 
     # --- commands ------------------------------------------------------------
 
@@ -480,6 +620,9 @@ def main():
         demo.rearrange()
 
         if args.inspect:
+            print("\n=== Window geometry ===")
+            for window in demo.windows:
+                inspect_geometry(window)
             input("Log in to ChatGPT if needed, then press Enter to list the page elements...")
             inspect_composers(demo.chatgpt.driver, "ChatGPT")
             inspect_composers(demo.local.driver, "Local Chat Bot")

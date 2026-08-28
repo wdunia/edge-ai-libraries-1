@@ -62,6 +62,19 @@ back and the typed prompt is restored from the browser's local storage.
 ChatGPT runs with a persistent Chrome profile (`.cache/chrome-gpt`), so the
 login survives demo restarts. Use `--reset-chatgpt-profile` to drop it.
 
+All three windows open as Chrome app windows, so no address bar and no
+"controlled by automated test software" banner eat into the screen. Chrome
+positions a window by its content, which leaves the console's title bar drawn
+above the strip it was given, on top of the chats. The two chat windows are
+therefore kept above the console (`wmctrl`, installed by `install_prereqs.sh`),
+which tucks that title bar underneath them and makes the three windows read as
+one application. Without `wmctrl` the demo still runs, `Rearrange windows` just
+reports that the chats could not be raised.
+
+Each window is also read back after being placed: a system panel can hold a
+window away from the top of the screen, and the window is then resized so that
+it still ends exactly where the next one begins.
+
 Everything runs as background Docker containers:
 
 ```bash
@@ -175,6 +188,9 @@ upstream updates into this branch does not create conflicts.
   log out and pick **Ubuntu on Xorg** (gear icon on the login screen).
 - If the windows end up in the wrong place, press `Rearrange windows` in the
   prompt console (or type `layout` in `--cli` mode).
+- If the console's title bar covers the bottom of the chat windows, `wmctrl` is
+  missing or the session is not X11: install it with `sudo apt install wmctrl`
+  and press `Rearrange windows`.
 - The tool types into ChatGPT only when that window is logged in and the
   composer is visible. If it reports `no visible prompt field found`, log in in
   the opened window and resend the prompt; the local chatbot is unaffected

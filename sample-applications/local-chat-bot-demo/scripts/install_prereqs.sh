@@ -81,7 +81,8 @@ EOF
 
 
     if ! command_exists curl || ! command_exists gpg || ! command_exists git || \
-       ! command_exists jq || ! command_exists python3 || ! command_exists pip3; then
+       ! command_exists jq || ! command_exists python3 || ! command_exists pip3 || \
+       ! command_exists wmctrl; then
         need_base_packages_install=true
     fi
 
@@ -92,7 +93,8 @@ EOF
 
     if [[ "$need_base_packages_install" == "true" ]]; then
         log "INSTALLING BASE DEPENDENCIES"
-        sudo apt install -y ca-certificates curl gnupg git jq intel-gpu-tools python3-venv python3-pip
+        # wmctrl keeps the chat windows above the prompt console.
+        sudo apt install -y ca-certificates curl gnupg git jq intel-gpu-tools python3-venv python3-pip wmctrl
     else
         log "BASE DEPENDENCIES ALREADY AVAILABLE: SKIPPING"
     fi
