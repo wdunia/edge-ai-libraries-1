@@ -174,6 +174,35 @@ prompt_for_device_if_needed() {
     done
 }
 
+host_ip_candidate() {
+    local ip=""
+    # `hostname -I` prints nothing at all until an address is assigned, and it is
+    # not installed everywhere, so `ip route get` is tried first.
+    if command_exists ip; then
+        ip="$(ip -4 route get 1.1.1.1 2>/dev/null \
+            | awk '{ for (i = 1; i < NF; i++) if ($i == "src") { print $(i + 1); exit } }')"
+    fi
+    if [[ -z "${ip}" ]] && command_exists hostname; then
+        ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+    fi
+    echo "${ip}"
+}
+
+detect_host_ip() {
+    local ip deadline
+    deadline=$(( $(date +%s) + HOST_IP_WAIT_SECONDS ))
+    while true; do
+        ip="$(host_ip_candidate)"
+        if [[ -n "${ip}" && "${ip}" != 127.* ]]; then
+            echo "${ip}"
+            return 0
+        fi
+        (( $(date +%s) < deadline )) || return 1
+        echo "waiting for a host IP address..." >&2
+        sleep 2
+    done
+}
+
 configure_runtime_env() {
     local ip="$1"
 
@@ -380,8 +409,9 @@ main() {
     save_answers
 
     local ip
-    ip="$(hostname -I | awk '{print $1}')"
-    [[ -n "${ip}" ]] || die "Could not determine host IP address."
+    ip="$(detect_host_ip)" || die "Could not determine the host IP address within \
+${HOST_IP_WAIT_SECONDS}s. Started at boot, the demo can run before the network is up - \
+raise HOST_IP_WAIT_SECONDS in scripts/demo.env if the machine needs longer."
 
     configure_runtime_env "${ip}"
 

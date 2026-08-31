@@ -15,6 +15,14 @@ source "${DEMO_ROOT}/scripts/demo.env"
 REPO_ROOT="$(cd "${DEMO_ROOT}/../.." && pwd)"
 APP_SOURCE_DIR="${REPO_ROOT}/${APP_REL_PATH}"
 
+# A desktop autostart entry starts with a minimal PATH, while `ip`, `usermod` and
+# friends live in the sbin directories.
+case ":${PATH}:" in
+    *:/usr/sbin:*) ;;
+    *) PATH="${PATH}:/usr/sbin:/sbin" ;;
+esac
+export PATH
+
 log()  { echo -e "\n=== $* ==="; }
 info() { echo "--> $*"; }
 warn() { echo "WARNING: $*" >&2; }
