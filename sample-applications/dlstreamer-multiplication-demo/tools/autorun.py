@@ -5,6 +5,7 @@ import importlib
 
 browser_name = "Chrome"
 ui_host = os.environ.get("EXTERNAL_HOST") or os.environ.get("HOST_IP") or None
+ui_port = os.environ.get("UI_PORT") or "8103"
 
 
 def has_graphical_session() -> bool:
@@ -108,18 +109,18 @@ def main():
     local_ip = ui_host or get_ip()
 
     if not has_graphical_session():
-        print(f"No graphical session detected. Open the UI manually: http://{local_ip}:8101")
+        print(f"No graphical session detected. Open the UI manually: http://{local_ip}:{ui_port}")
         return
 
     resolution = get_screen_resolution()
     if resolution is None:
-        print(f"Screen resolution unavailable. Open the UI manually: http://{local_ip}:8101")
+        print(f"Screen resolution unavailable. Open the UI manually: http://{local_ip}:{ui_port}")
         return
 
     width, height = resolution
-    dlstreamer = open_browser(f"http://{local_ip}:8101")
+    dlstreamer = open_browser(f"http://{local_ip}:{ui_port}")
     if dlstreamer is None:
-        print(f"Automatic browser launch failed. Open the UI manually: http://{local_ip}:8101")
+        print(f"Automatic browser launch failed. Open the UI manually: http://{local_ip}:{ui_port}")
         return
 
     print(f"window: {browser_name}, x=0, y=0, width={width}, height={height}")

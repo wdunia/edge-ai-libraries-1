@@ -28,6 +28,7 @@ DEFAULT_MODEL_SHARING="${DLSPS_SHARE_MODEL_INSTANCE:-false}"
 MODEL_PATH_IN_CONTAINER="${MODEL_PATH_IN_CONTAINER:-/home/pipeline-server/resources/models/geti/pallet_defect_detection/deployment/Detection/model/model.xml}"
 SYSTEM_INFO_TEXT="${SYSTEM_INFO_TEXT:-CPU/GPU/NPU telemetry via prebuilt images}"
 EXTERNAL_HOST="${EXTERNAL_HOST:-${HOST_IP:-}}"
+UI_PORT="${UI_PORT:-8103}"
 
 has_graphical_session() {
     [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" || "${XDG_SESSION_TYPE:-}" == "x11" || "${XDG_SESSION_TYPE:-}" == "wayland" ]]
@@ -260,6 +261,7 @@ main() {
 
     ip="${EXTERNAL_HOST:-$(detect_host_address)}"
     export EXTERNAL_HOST="${ip}"
+    export UI_PORT
 
     if [[ "$SOURCE_MODE" == "file" ]]; then
         default_stream_url="file:///home/pipeline-server/resources/videos/warehouse.avi"
@@ -270,6 +272,7 @@ main() {
     default_stream_url_rtsp="${DEFAULT_STREAM_URL}"
 
     update_env_var "${DOCKER_ENV_FILE}" "ip" "${ip}"
+    update_env_var "${DOCKER_ENV_FILE}" "UI_PORT" "${UI_PORT}"
     update_env_var "${DOCKER_ENV_FILE}" "WHIP_SERVER_IP" "${ip}"
     update_env_var "${DOCKER_ENV_FILE}" "VITE_PIPELINE_SERVER_URL" "http://${ip}:8080"
     update_env_var "${DOCKER_ENV_FILE}" "VITE_API_URL" "http://${ip}:8888"
@@ -308,16 +311,16 @@ main() {
     wait_for_http_200 "http://localhost:8888/health" "${MAX_WAIT_SECONDS}" "demo backend"
     wait_for_http_200 "http://localhost:8080/pipelines/status" "${MAX_WAIT_SECONDS}" "pipeline server"
 
-    echo "Demo is up: http://${ip}:8101"
+    echo "Demo is up: http://${ip}:${UI_PORT}"
 
     if [[ "$HEADLESS" == "true" ]]; then
-        echo "Headless mode enabled. Open http://${ip}:8101 manually."
+        echo "Headless mode enabled. Open http://${ip}:${UI_PORT} manually."
         return 0
     fi
 
     if [[ "$AUTO_OPEN_BROWSER" == "true" ]]; then
         if ! has_graphical_session; then
-            echo "No graphical session detected. Skipping automatic browser launch. Open http://${ip}:8101 manually."
+            echo "No graphical session detected. Skipping automatic browser launch. Open http://${ip}:${UI_PORT} manually."
             return 0
         fi
 
@@ -326,7 +329,7 @@ main() {
         # shellcheck disable=SC1091
         source .venv/bin/activate
         pip install -r requirements.txt
-        python3 autorun.py || echo "Skipping automatic browser launch. Open http://${ip}:8101 manually if needed."
+        python3 autorun.py || echo "Skipping automatic browser launch. Open http://${ip}:${UI_PORT} manually if needed."
     fi
 }
 

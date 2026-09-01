@@ -51,7 +51,7 @@ Run this once per machine, or again only if you want to refresh the local setup.
 When the stack is ready:
 
 - the browser should open automatically
-- UI: `http://<host>:8101`
+- UI: `http://<host>:8103`
 
 If you run the demo in a headless environment, the stack still starts normally
 and you can open the UI manually from another machine or session.

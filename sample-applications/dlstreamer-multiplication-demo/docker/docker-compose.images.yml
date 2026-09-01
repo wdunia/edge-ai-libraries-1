@@ -179,7 +179,7 @@ services:
       - VITE_DEFAULT_INFERENCE_RESOLUTION=${VITE_DEFAULT_INFERENCE_RESOLUTION}
       - VITE_DEFAULT_MODEL_SHARING=${VITE_DEFAULT_MODEL_SHARING}
     ports:
-      - "8101:8101"
+      - "${UI_PORT:-8103}:8103"
     networks:
       - app_network
 
