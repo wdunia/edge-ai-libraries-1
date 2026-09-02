@@ -29,6 +29,7 @@ MODEL_PATH_IN_CONTAINER="${MODEL_PATH_IN_CONTAINER:-/home/pipeline-server/resour
 SYSTEM_INFO_TEXT="${SYSTEM_INFO_TEXT:-CPU/GPU/NPU telemetry via prebuilt images}"
 EXTERNAL_HOST="${EXTERNAL_HOST:-${HOST_IP:-}}"
 UI_PORT="${UI_PORT:-8103}"
+NGINX_PORT="${NGINX_PORT:-8104}"
 
 has_graphical_session() {
     [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" || "${XDG_SESSION_TYPE:-}" == "x11" || "${XDG_SESSION_TYPE:-}" == "wayland" ]]
@@ -262,6 +263,7 @@ main() {
     ip="${EXTERNAL_HOST:-$(detect_host_address)}"
     export EXTERNAL_HOST="${ip}"
     export UI_PORT
+    export NGINX_PORT
 
     if [[ "$SOURCE_MODE" == "file" ]]; then
         default_stream_url="file:///home/pipeline-server/resources/videos/warehouse.avi"
@@ -273,6 +275,7 @@ main() {
 
     update_env_var "${DOCKER_ENV_FILE}" "ip" "${ip}"
     update_env_var "${DOCKER_ENV_FILE}" "UI_PORT" "${UI_PORT}"
+    update_env_var "${DOCKER_ENV_FILE}" "NGINX_PORT" "${NGINX_PORT}"
     update_env_var "${DOCKER_ENV_FILE}" "WHIP_SERVER_IP" "${ip}"
     update_env_var "${DOCKER_ENV_FILE}" "VITE_PIPELINE_SERVER_URL" "http://${ip}:8080"
     update_env_var "${DOCKER_ENV_FILE}" "VITE_API_URL" "http://${ip}:8888"
