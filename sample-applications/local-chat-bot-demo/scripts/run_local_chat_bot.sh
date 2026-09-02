@@ -475,12 +475,27 @@ PY
     done
 }
 
+# A virtualenv breaks when the demo directory is moved or the system python is
+# upgraded - the interpreter symlink and the script shebangs then point at paths
+# that no longer exist ("cannot execute: required file not found").
+autorun_venv_is_usable() {
+    [[ -x .venv/bin/python ]] && .venv/bin/python -c '' >/dev/null 2>&1
+}
+
 # The prompt tool dependencies change very rarely, while reinstalling them on
 # every start costs time and needs network access - so pip only runs when
 # requirements.txt actually changed.
 setup_autorun_venv() {
     local stamp=".venv/.requirements.sha256" current
-    [[ -d .venv ]] || python3 -m venv .venv
+    if [[ -d .venv ]] && ! autorun_venv_is_usable; then
+        warn "Prompt tool virtualenv is broken - recreating ${PWD}/.venv"
+        rm -rf .venv
+    fi
+    if [[ ! -d .venv ]]; then
+        python3 -m venv .venv \
+            || die "Could not create ${PWD}/.venv - install the python3-venv package and retry."
+        autorun_venv_is_usable || die "Created ${PWD}/.venv is not usable."
+    fi
     # shellcheck disable=SC1091
     source .venv/bin/activate
     current="$(sha256_of_stdin < requirements.txt)"
@@ -488,7 +503,8 @@ setup_autorun_venv() {
         info "Prompt tool dependencies are up to date - skipping pip install."
         return 0
     fi
-    pip install -q -r requirements.txt
+    # Called through the interpreter, so a stale `pip` shebang cannot break it.
+    .venv/bin/python -m pip install -q -r requirements.txt
     echo "${current}" > "${stamp}"
 }
 
