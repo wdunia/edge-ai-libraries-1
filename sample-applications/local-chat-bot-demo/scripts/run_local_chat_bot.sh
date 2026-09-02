@@ -45,6 +45,10 @@ Options:
   --reconfigure         Ask for the device again and overwrite the saved answer.
   --skip-install        Do not run scripts/install_prereqs.sh.
   --skip-prepare        Reuse the existing working copy as-is.
+  --fresh-model-download
+                        Recreate the model-download container instead of reusing
+                        the running one (its Python dependencies are then
+                        installed again, which requires network access).
   --no-autorun          Do not start the prompt submission tool at the end.
   --cli                 Read prompts from the terminal instead of the browser console.
   --reset-chatgpt-profile
@@ -58,7 +62,9 @@ An unattended start (e.g. at boot) therefore runs without any input.
 Precedence: command line > environment > saved answer.
 
 Restarting is safe: downloaded/converted models live in a persistent cache and
-are reused (see OVMS_MODELS_DIR in scripts/demo.env).
+are reused (see OVMS_MODELS_DIR in scripts/demo.env). The model-download
+container is kept running between runs as well, because its entrypoint installs
+the whole Python environment on every container creation and start.
 
 Logs:
   docker logs -f model-download
@@ -77,6 +83,7 @@ parse_args() {
             --skip-install) SKIP_INSTALL=true ;;
             --skip-prepare) SKIP_PREPARE=true ;;
             --no-autorun) RUN_AUTORUN=false ;;
+            --fresh-model-download) MODEL_DOWNLOAD_REUSE=false ;;
             --reconfigure) RECONFIGURE=true ;;
             --cli) AUTORUN_ARGS+=(--cli) ;;
             --reset-chatgpt-profile) AUTORUN_ARGS+=(--reset-chatgpt-profile) ;;
@@ -259,11 +266,94 @@ pull_model_download_image_if_needed() {
     esac
 }
 
+sha256_of_stdin() {
+    if command_exists sha256sum; then
+        sha256sum | awk '{print $1}'
+    else
+        python3 -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())'
+    fi
+}
+
+# Everything the container is created with. A change here means the existing
+# container cannot be reused and has to be recreated.
+model_download_config_hash() {
+    printf '%s\n' \
+        "${MODEL_DOWNLOAD_IMAGE}" \
+        "${MODEL_DOWNLOAD_PORT}" \
+        "${MODEL_DOWNLOAD_MODEL_PATH}" \
+        "${MODEL_DOWNLOAD_PLUGINS}" \
+        "${OVMS_RELEASE_TAG:-v2025.4.1}" \
+        "${MAX_UPLOAD_SIZE_MB:-500}" \
+        "${UPLOAD_CHUNK_SIZE_KB:-8}" \
+        "${http_proxy:-}|${https_proxy:-}|${no_proxy:-}" \
+        "${HTTP_PROXY:-}|${HTTPS_PROXY:-}|${NO_PROXY:-}" \
+        | sha256_of_stdin
+}
+
+model_download_token_hash() {
+    printf '%s' "${HUGGINGFACEHUB_API_TOKEN}" | sha256_of_stdin
+}
+
+model_download_container_matches() {
+    local cmd found
+    cmd="docker ps -a --filter name=^/model-download\$ --filter label=demo.config=$(printf '%q' "$1")"
+    # The token is only used to download missing models, so a run without one
+    # (everything already cached) can reuse a container created with a token.
+    if [[ -n "${HUGGINGFACEHUB_API_TOKEN}" ]]; then
+        cmd+=" --filter label=demo.hf-token=$(printf '%q' "$2")"
+    fi
+    found="$(run_docker_cmd "${cmd} --format '{{.Names}}'" 2>/dev/null || true)"
+    [[ "${found}" == *"model-download"* ]]
+}
+
+model_download_state() {
+    run_docker_cmd "docker ps -a --filter name=^/model-download\$ --format '{{.State}}'" 2>/dev/null || true
+}
+
+model_download_is_healthy() {
+    local response
+    response="$(curl -fsS "http://localhost:${MODEL_DOWNLOAD_PORT}/health" 2>/dev/null || true)"
+    [[ -n "${response}" ]] && json_status_is "${response}" "ok"
+}
+
+# Creating or starting the container makes its entrypoint install the whole
+# Python environment again (uv lock/uv sync plus a venv per plugin): minutes of
+# downloads, and a hard failure when the machine is offline. A container that
+# already runs with the same configuration is therefore left alone.
+reuse_model_download_container() {
+    [[ "${MODEL_DOWNLOAD_REUSE}" == "true" ]] || return 1
+    # An explicit `always` pull policy asks for the newest image on every run,
+    # which can only be honoured by recreating the container.
+    [[ "${MODEL_DOWNLOAD_PULL_POLICY}" != "always" ]] || return 1
+    model_download_container_matches "$(model_download_config_hash)" "$(model_download_token_hash)" || return 1
+
+    local state
+    state="$(model_download_state)"
+    if [[ "${state}" == "running" ]]; then
+        if model_download_is_healthy; then
+            info "Reusing the running model-download container - dependencies are already installed."
+        else
+            info "model-download container is running but not ready yet - waiting for it instead of recreating it."
+        fi
+        return 0
+    fi
+
+    info "Starting the existing model-download container (its installed dependencies are reused)."
+    run_docker_cmd "docker start model-download >/dev/null" && return 0
+
+    warn "Could not start the existing model-download container - recreating it."
+    return 1
+}
+
 start_model_download() {
+    reuse_model_download_container && return 0
+
     pull_model_download_image_if_needed
     run_docker_cmd "docker rm -f model-download >/dev/null 2>&1 || true"
     run_docker_cmd "docker run -d \
         --name model-download \
+        --label demo.config=$(printf '%q' "$(model_download_config_hash)") \
+        --label demo.hf-token=$(printf '%q' "$(model_download_token_hash)") \
         -p $(printf '%q' "${MODEL_DOWNLOAD_PORT}"):8000 \
         -v $(printf '%q' "${MODEL_DOWNLOAD_MODEL_PATH}"):/opt/models \
         --group-add \$(id -g) \
@@ -385,9 +475,34 @@ PY
     done
 }
 
+# The prompt tool dependencies change very rarely, while reinstalling them on
+# every start costs time and needs network access - so pip only runs when
+# requirements.txt actually changed.
+setup_autorun_venv() {
+    local stamp=".venv/.requirements.sha256" current
+    [[ -d .venv ]] || python3 -m venv .venv
+    # shellcheck disable=SC1091
+    source .venv/bin/activate
+    current="$(sha256_of_stdin < requirements.txt)"
+    if [[ "$(cat "${stamp}" 2>/dev/null || true)" == "${current}" ]]; then
+        info "Prompt tool dependencies are up to date - skipping pip install."
+        return 0
+    fi
+    pip install -q -r requirements.txt
+    echo "${current}" > "${stamp}"
+}
+
 stop_existing_runtime() {
     log "STOPPING EXISTING DEMO RUNTIME (models are kept)"
-    "${DEMO_ROOT}/scripts/stop_local_chat_bot.sh" --quiet
+    local stop_args=(--quiet)
+    if [[ "${MODEL_DOWNLOAD_REUSE}" == "true" ]]; then
+        # Even a stop/start cycle re-runs the installing entrypoint, so the
+        # container is left running across a demo restart.
+        stop_args+=(--keep-model-download)
+    else
+        stop_args+=(--remove-model-download)
+    fi
+    "${DEMO_ROOT}/scripts/stop_local_chat_bot.sh" "${stop_args[@]}"
 }
 
 main() {
@@ -475,10 +590,7 @@ raise HOST_IP_WAIT_SECONDS in scripts/demo.env if the machine needs longer."
     if [[ "${RUN_AUTORUN}" == "true" ]]; then
         log "STARTING PROMPT SUBMISSION TOOL"
         cd "${DEMO_ROOT}/tools"
-        python3 -m venv .venv
-        # shellcheck disable=SC1091
-        source .venv/bin/activate
-        pip install -q -r requirements.txt
+        setup_autorun_venv
         python3 autorun.py "${AUTORUN_ARGS[@]+"${AUTORUN_ARGS[@]}"}"
     fi
 }

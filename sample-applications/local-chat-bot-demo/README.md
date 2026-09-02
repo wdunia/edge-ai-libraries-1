@@ -107,6 +107,7 @@ Everything runs as background Docker containers:
   --strict \                # fail when upstream drifted from the baseline
   --skip-install \          # do not touch host packages
   --skip-prepare \          # reuse the working copy as-is
+  --fresh-model-download \  # recreate model-download instead of reusing it
   --cli \                   # type prompts in the terminal, no console window
   --reset-chatgpt-profile \ # forget the saved ChatGPT login
   --no-autorun              # do not start the prompt submission tool
@@ -133,8 +134,16 @@ The launcher stops leftover containers and reuses:
 - `.cache/ovms` - converted OVMS models (skipped by the patched `setup.sh`)
 - `$HOME/host_path` - model-download working directory
 - `.work/chat-question-and-answer` - the prepared working copy
+- the `model-download` container itself - its Python dependencies (`uv lock`/`uv
+  sync` plus a venv per plugin) are installed by the entrypoint, which runs on
+  every container creation and start. A demo restart therefore leaves the
+  container running, and a previous `stop` only stopped it, so later runs are
+  much faster and no longer depend on the network. The container is recreated
+  automatically when its configuration changes, and on demand with
+  `--fresh-model-download`.
 
-Only `./scripts/stop_local_chat_bot.sh --purge-models` deletes the model cache.
+Only `./scripts/stop_local_chat_bot.sh --purge-models` deletes the model cache,
+and only `--remove-model-download` drops the model-download container.
 
 </details>
 
@@ -147,7 +156,7 @@ Only `./scripts/stop_local_chat_bot.sh --purge-models` deletes the model cache.
 | `scripts/prepare_workspace.sh` | build the working copy: copy → overlay → patches → generators |
 | `scripts/build_demo_images.sh` | build `local-chat-bot-be:local` and `local-chat-bot-ui:local` |
 | `scripts/run_local_chat_bot.sh`| full demo launch (metrics-manager, model-download, stack, autorun) |
-| `scripts/stop_local_chat_bot.sh`| stop the demo (`--purge-models` to drop the cache) |
+| `scripts/stop_local_chat_bot.sh`| stop the demo (`--purge-models` to drop the cache, `--remove-model-download` to drop that container) |
 | `scripts/logs.sh`              | follow stack or container logs |
 | `scripts/make_patches.sh`      | regenerate `patches/`, `overlay/`, `overlay/MANIFEST.sha256` |
 
