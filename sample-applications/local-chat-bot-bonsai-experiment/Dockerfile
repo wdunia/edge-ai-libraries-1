@@ -1,0 +1,15 @@
+FROM openvino/ubuntu24_runtime:2026.2.0@sha256:9286c2999e7873b5ded0b76236331964a43c21c157d6b7f7dc7daa4166211bc1
+
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-venv intel-opencl-icd libze1 && \
+    rm -rf /var/lib/apt/lists/*
+RUN python3 -m venv /opt/bonsai-venv && \
+    /opt/bonsai-venv/bin/python -m pip install --no-cache-dir \
+    openvino==2026.2.0 openvino-genai==2026.2.0.0
+
+COPY verify_bonsai.py server.py smoke.py /opt/bonsai/
+WORKDIR /opt/bonsai
+ENV PATH="/opt/bonsai-venv/bin:${PATH}"
+ENV PYTHONPATH=""
+ENTRYPOINT ["/opt/bonsai-venv/bin/python", "-u", "/opt/bonsai/server.py"]

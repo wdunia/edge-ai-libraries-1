@@ -1,0 +1,32 @@
+services:
+  chatqna:
+    environment:
+      - ENDPOINT_URL=http://ovms-bonsai:8000/v1
+      - LLM_MODEL=${BONSAI_REPO_ID:?Select a Bonsai model}
+      - no_proxy=${no_proxy},ovms-bonsai
+
+  ovms-service-gpu:
+    command: ["--port", "9000", "--rest_port", "80", "--log_level", "DEBUG",
+              "--config_path", "workspace/models/config_embedding_only.json"]
+
+  bonsai-service:
+    container_name: bonsai-service
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    build:
+      context: ${BONSAI_EXPERIMENT_DIR:?Experiment directory required}
+      dockerfile: Dockerfile
+    image: local-chat-bot-bonsai:experimental
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - ${RENDER_DEVICE_GID:?GPU render group required}
+    volumes:
+      - "${BONSAI_MODEL_DIR:?Model directory required}:/model:ro"
+      - "${BONSAI_COMPILE_DIR:?Compilation cache required}:/cache"
+    environment:
+      - BONSAI_VARIANT=${BONSAI_VARIANT:?Select a Bonsai variant}
+      - BONSAI_GPU_DEVICE=${BONSAI_GPU_DEVICE:-GPU.0}
+    networks:
+      my_network:
+        aliases: [ovms-bonsai]

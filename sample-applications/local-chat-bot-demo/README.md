@@ -46,6 +46,10 @@ before the health check passes. Converted models are cached in `.cache/ovms`
 **outside** the working copy, so every later start (including `--clean`) reuses
 them.
 
+Optional model-comparison research is kept separately in
+[`../local-chat-bot-bonsai-experiment/`](../local-chat-bot-bonsai-experiment/).
+It does not change the default demo or enable Bonsai here.
+
 ## Prompt console
 
 The demo ends by arranging three Chrome windows: ChatGPT on the left, the local
@@ -227,5 +231,3 @@ The Helm chart of the sample application is out of scope - the demo runs on
 Docker Compose only.
 
 </details>
-
-
