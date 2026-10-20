@@ -21,6 +21,24 @@ chmod +x scripts/*.sh generators/*.sh
 ./scripts/run_local_chat_bot.sh --force-restart
 ```
 
+The demo's Compose override uses a pinned `chainguard/minio` image instead of
+the sample application's retired `minio/minio` image. MinIO's data still lives
+at `MINIO_MOUNT_PATH` (default: `/opt/share/mnt/miniodata`); the replacement
+image runs as UID 65532, so that directory and any existing data must be
+writable by UID 65532. For a **new, empty** data directory with the default
+path on a standard (non-rootless) Docker installation, prepare it before the
+first launch:
+
+```bash
+sudo install -d -o 65532 -g 65532 -m 700 /opt/share/mnt/miniodata
+```
+
+For an existing directory, or when using rootless/user-namespace Docker,
+check the mapped UID and the ownership of existing data before changing
+permissions; do not delete the data. After updating this override on a
+machine with an existing working copy, restart normally (`--clean` is not
+needed).
+
 You will be asked for a Hugging Face token
 ([how to get one](https://huggingface.co/docs/hub/security-tokens)) and a target
 device (`CPU` or `GPU`; NPU is not supported by the sample application).
