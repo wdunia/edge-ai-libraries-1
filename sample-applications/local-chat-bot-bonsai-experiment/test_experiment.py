@@ -82,6 +82,19 @@ class ExperimentTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             unfinished.finish()
 
+    def test_bonsai_requires_selected_visible_gpu(self):
+        core = SimpleNamespace(available_devices=["CPU", "GPU.0"])
+        server.require_gpu(core, "GPU.0")
+        for device in ("CPU", "GPU.1"):
+            with self.assertRaisesRegex(RuntimeError, "available GPU"):
+                server.require_gpu(core, device)
+        class UnavailableCore:
+            @property
+            def available_devices(self):
+                raise RuntimeError("plugin failed")
+        with self.assertRaisesRegex(RuntimeError, "cannot enumerate OpenVINO devices"):
+            server.require_gpu(UnavailableCore(), "GPU.0")
+
     def test_server_streams_real_chunks_through_openai_endpoint(self):
         class Pipeline:
             def finish_chat(self):

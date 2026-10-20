@@ -103,6 +103,11 @@ Face `hf` CLI locally in an ignored virtual environment.
    a *separate working copy*, stops its gpt-oss OVMS process, creates an
    embedding-only OVMS config, then starts Bonsai and reconnects ChatQnA.
    This first launch also builds the container image and compiles the model.
+   The Bonsai image installs Intel's OpenCL and Level Zero userspace packages
+   from Intel's signed graphics repository **inside the container only**;
+   it does not install a host GPU driver or a host OpenVINO plugin. The
+   publisher validated a specific compute runtime on B70, so this does not
+   establish compatibility with B390.
 
    ```bash
    unset HF_TOKEN HUGGINGFACEHUB_API_TOKEN
@@ -115,7 +120,12 @@ Face `hf` CLI locally in an ignored virtual environment.
    A successful smoke test prints the actual generated answer and requires
    **at least two content fragments before completion**. Verify the response
    in the UI as well. Failure to load on B390, a failed smoke test or a
-   stalled UI is a feasibility failure, **not a benchmark result**. Inspect
+   stalled UI is a feasibility failure, **not a benchmark result**. The
+   launcher now fails immediately with Bonsai logs if that container exits.
+   The logs list GPUs visible to OpenVINO and the selected `BONSAI_GPU_DEVICE`;
+   if that device is absent, choose a reported GPU ID and retry. If the
+   correct device is visible but pipeline creation still fails, do not assume
+   that installing the plugin on the host will fix it. Inspect
    `docker logs bonsai-service` and the demo logs. `server.py` copies the
    verified native plugin **only into the newly built container's own
    OpenVINO installation**; it does not modify the host's OpenVINO package

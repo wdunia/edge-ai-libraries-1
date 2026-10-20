@@ -19,6 +19,18 @@ MODELS = {
 }
 
 
+def require_gpu(core, device: str) -> None:
+    try:
+        devices = core.available_devices
+    except RuntimeError as exc:
+        raise RuntimeError("The Bonsai container cannot enumerate OpenVINO devices; "
+                           "check its GPU userspace runtime and /dev/dri access") from exc
+    print(f"OpenVINO devices in Bonsai container: {devices}; selected: {device}", flush=True)
+    if not device.startswith("GPU") or device not in devices:
+        raise RuntimeError(f"{device} is not an available GPU in the Bonsai container; "
+                           f"available OpenVINO devices: {devices}")
+
+
 class VisibleAnswer:
     def __init__(self):
         self.pending = ""
@@ -192,11 +204,14 @@ def main() -> None:
     if sha256(installed) != PLUGIN_SHA256[variant]:
         raise RuntimeError("Container-local plugin checksum mismatch")
 
+    device = os.environ["BONSAI_GPU_DEVICE"]
+    require_gpu(ov.Core(), device)
+
     import openvino_genai as genai
     runtime_name, model_name = MODELS[variant]
     sys.path.insert(0, "/model/runtime")
     runtime = __import__(runtime_name)
-    pipeline = runtime.create_pipeline("/model", os.environ["BONSAI_GPU_DEVICE"], "/cache")
+    pipeline = runtime.create_pipeline("/model", device, "/cache")
     serve(pipeline, pipeline.get_tokenizer(), runtime, genai, model_name)
 
 

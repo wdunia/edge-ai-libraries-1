@@ -38,6 +38,23 @@ python3 "${EXPERIMENT_DIR}/prepare.py" --work-dir "${WORK_DIR}" --ovms-dir "${OV
 
 echo "Starting ${variant} in the disposable comparison stack (no host plugin replacement)."
 run_docker_cmd "$(printf '%q ' "${compose[@]}") up -d --build --force-recreate"
+started="$(date +%s)"
+while true; do
+    state="$(run_docker_cmd "docker inspect --format '{{.State.Status}}' bonsai-service")"
+    if [[ "${state}" == "exited" || "${state}" == "dead" ]]; then
+        echo "Bonsai service stopped before it became ready (state: ${state}). Logs:" >&2
+        run_docker_cmd "docker logs --tail 80 bonsai-service" >&2 || true
+        exit 1
+    fi
+    if run_docker_cmd "docker exec bonsai-service /opt/bonsai-venv/bin/python -c 'from urllib.request import urlopen; urlopen(\"http://127.0.0.1:8000/v2/health/ready\", timeout=3).close()' >/dev/null 2>&1"; then
+        break
+    fi
+    if (( $(date +%s) - started >= MAX_WAIT_SECONDS )); then
+        echo "Timed out waiting for the Bonsai server. Inspect: docker logs bonsai-service" >&2
+        exit 1
+    fi
+    sleep 3
+done
 wait_for_chatqna_health "http://localhost:8100/health" "${MAX_WAIT_SECONDS}"
 echo "Comparison UI: http://localhost:8101"
 echo "Stop: ${EXPERIMENT_DIR}/stop.sh"

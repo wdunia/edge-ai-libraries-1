@@ -2,7 +2,15 @@ FROM openvino/ubuntu24_runtime:2026.2.0@sha256:9286c2999e7873b5ded0b76236331964a
 
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3-venv intel-opencl-icd libze1 && \
+    python3-venv ca-certificates curl gnupg && \
+    curl -fsSLo /tmp/intel-graphics.key \
+      https://repositories.intel.com/graphics/intel-graphics.key && \
+    gpg --batch --dearmor -o /usr/share/keyrings/intel-graphics.gpg /tmp/intel-graphics.key && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/graphics/ubuntu noble main" \
+      > /etc/apt/sources.list.d/intel-graphics.list && \
+    apt-get update && apt-get install -y --no-install-recommends \
+      intel-opencl-icd intel-level-zero-gpu level-zero clinfo && \
+    rm -f /tmp/intel-graphics.key && \
     rm -rf /var/lib/apt/lists/*
 RUN python3 -m venv /opt/bonsai-venv && \
     /opt/bonsai-venv/bin/python -m pip install --no-cache-dir \
