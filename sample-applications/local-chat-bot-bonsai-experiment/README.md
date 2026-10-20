@@ -36,7 +36,8 @@ module, not a package supplied by OpenVINO or the model publisher.
 
 Work on a dedicated test machine without secrets or private documents. Run
 these commands from this directory. Docker Compose, Python 3 and the
-Hugging Face `hf` CLI must already be installed.
+Python `venv` module must already be installed. Step 2 installs the Hugging
+Face `hf` CLI locally in an ignored virtual environment.
 
 1. **Prepare the existing gpt-oss baseline**, and make sure both the gpt-oss
    and embedding OVMS models are cached in the demo's `.cache/ovms`.
@@ -53,17 +54,26 @@ Hugging Face `hf` CLI must already be installed.
 
 2. **Download the exact published builds** (1-bit first, then ternary).
    Allow enough free disk space. Avoid credentials for these public
-   repositories; a cached `hf` login may still be present on a reused host.
+   repositories. Create a dedicated virtual environment and use an isolated
+   Hugging Face home so a login cached on the host is not used. On Debian or
+   Ubuntu, install `python3-venv` first if `python3 -m venv` is unavailable.
 
    ```bash
+   python3 -m venv .venv
+   .venv/bin/python -m pip install huggingface_hub
+   .venv/bin/hf --help
    unset HF_TOKEN HUGGINGFACEHUB_API_TOKEN
-   hf download Wondernutts/Bonsai-27B-INTBIT-OpenVINO-Arc \
+   export HF_HOME="$PWD/.cache/hf-home"
+   .venv/bin/hf download Wondernutts/Bonsai-27B-INTBIT-OpenVINO-Arc \
      --revision 0f1c8234ef1c874f62a8d88df9b9a8b26e3c911c \
      --local-dir models/bonsai-1bit
-   hf download Wondernutts/Bonsai-27B-INTERNARY-OpenVINO-Arc \
+   .venv/bin/hf download Wondernutts/Bonsai-27B-INTERNARY-OpenVINO-Arc \
      --revision 3a9e2f4ddcff5af2b370451b9a04e2117ef94c2a \
      --local-dir models/bonsai-ternary
    ```
+
+   Later steps use system `python3` for standard-library-only scripts; the
+   virtual environment is needed only for `hf` and need not be activated.
 
 3. **Verify each download without running the models**. These jobs have
    no network, GPU device or published ports. A checksum failure stops
