@@ -78,7 +78,7 @@ def serve(pipeline, tokenizer, runtime, genai, model_name: str,
             answer_tokens = int(request.get("max_tokens") or 256)
             if not 1 <= answer_tokens <= 32768:
                 raise ValueError("max_tokens must be between 1 and 32768")
-            config.max_new_tokens = answer_tokens + 256
+            config.max_new_tokens = answer_tokens + 1024
             temperature = float(request.get("temperature", 0.7))
             config.do_sample = temperature > 0
             if config.do_sample:

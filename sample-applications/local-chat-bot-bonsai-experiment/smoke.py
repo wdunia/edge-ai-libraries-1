@@ -4,6 +4,7 @@
 import json
 import os
 import time
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 models = {
@@ -14,7 +15,8 @@ model = models[os.environ["BONSAI_VARIANT"]]
 payload = json.dumps({
     "model": model,
     "messages": [{"role": "user", "content":
-                  "Explain packed low-bit weights in five short paragraphs."}],
+                  "Answer directly without a thinking section or reasoning. "
+                  "In one sentence, explain why packed weights use less memory."}],
     "stream": True,
     "max_tokens": 256,
     "temperature": 0.01,
@@ -25,7 +27,12 @@ started = time.perf_counter()
 first = None
 fragments = []
 finished = False
-with urlopen(request, timeout=600) as response:
+try:
+    response = urlopen(request, timeout=1800)
+except HTTPError as exc:
+    raise RuntimeError(f"Bonsai returned HTTP {exc.code}: "
+                       f"{exc.read().decode('utf-8', errors='replace')}") from exc
+with response:
     if response.headers.get_content_type() != "text/event-stream":
         raise RuntimeError(f"Expected SSE, got {response.headers.get_content_type()}")
     for line in response:

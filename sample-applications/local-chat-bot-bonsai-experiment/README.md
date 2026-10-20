@@ -102,7 +102,8 @@ Face `hf` CLI locally in an ignored virtual environment.
    the demo prerequisites already installed. The script starts the demo in
    a *separate working copy*, stops its gpt-oss OVMS process, creates an
    embedding-only OVMS config, then starts Bonsai and reconnects ChatQnA.
-   This first launch also builds the container image and compiles the model.
+   The experiment sets the UI answer limit to 256 tokens in its disposable
+   copy. This first launch also builds the container image and compiles the model.
    The Bonsai image installs pinned Intel OpenCL and Level Zero userspace
    release packages from GitHub, verifying their SHA-256 hashes before
    installation **inside the container only**; the Intel graphics APT
@@ -121,7 +122,13 @@ Face `hf` CLI locally in an ignored virtual environment.
    ```
 
    A successful smoke test prints the actual generated answer and requires
-   **at least two content fragments before completion**. Verify the response
+   **at least two content fragments before completion**. The model can spend
+   substantial time generating hidden reasoning even with thinking disabled
+   in the chat template. Following the publisher's guidance, the experiment
+   allows up to 1024 extra reasoning tokens; the disposable ChatQnA client
+   allows up to 30 minutes before timing out as well. The smoke test waits
+   up to 30 minutes and reports the server's error body if generation fails. A ready
+   server alone does not prove it can produce an answer. Verify the response
    in the UI as well. Failure to load on B390, a failed smoke test or a
    stalled UI is a feasibility failure, **not a benchmark result**. The
    launcher now fails immediately with Bonsai logs if that container exits.

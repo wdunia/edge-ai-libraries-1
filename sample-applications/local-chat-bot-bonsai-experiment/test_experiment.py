@@ -51,17 +51,28 @@ class ExperimentTests(unittest.TestCase):
             app.mkdir()
             chain = app / "chain.py"
             chain.write_text('template = """\n<|start|>system<|message|>gpt\n"""\n'
-                             "OTHER = 42\n", encoding="utf-8")
+                             "OTHER = 42\n            max_tokens=max_tokens\n", encoding="utf-8")
             prepare.prepare_chat(root)
             updated = chain.read_text(encoding="utf-8")
             self.assertIn("OTHER = 42", updated)
             self.assertNotIn("<|start|>", updated)
             self.assertIn("answer from general knowledge", updated)
+            self.assertIn("request_timeout=1800", updated)
             source, target = root / "all.json", root / "embedding.json"
             source.write_text('{"model_config_list": [{"name": "gpt-oss-20b"}, '
                               '{"name": "nomic-embed-text-v1.5"}]}', encoding="utf-8")
             prepare.prepare_embedding(source, target, "nomic-ai/nomic-embed-text-v1.5")
             self.assertEqual(len(json.loads(target.read_text())["model_config_list"]), 1)
+            ui = root / "ui" / "react"
+            ui.mkdir(parents=True)
+            env = ui / ".env"
+            env.write_text("VITE_MAX_TOKENS=32768\nOTHER=kept\n", encoding="utf-8")
+            prepare.prepare_ui(root)
+            self.assertEqual(env.read_text(encoding="utf-8"),
+                             "VITE_MAX_TOKENS=256\nOTHER=kept\n")
+            prepare.prepare_ui(root)
+            self.assertEqual(env.read_text(encoding="utf-8"),
+                             "VITE_MAX_TOKENS=256\nOTHER=kept\n")
 
     def test_benchmark_reuses_the_demo_example_prompts(self):
         demo = Path(__file__).resolve().parents[1] / "local-chat-bot-demo" / "tools" / "prompts.py"
@@ -102,6 +113,7 @@ class ExperimentTests(unittest.TestCase):
 
             def generate(self, prompt, generation_config, streamer):
                 self.prompt = prompt
+                self.generation_config = generation_config
                 streamer("<think>hidden</think>")
                 streamer("Hello")
                 streamer(" world")
@@ -131,6 +143,7 @@ class ExperimentTests(unittest.TestCase):
             with urlopen(request, timeout=5) as response:
                 events = [line[6:].strip() for line in response if line.startswith(b"data: ")]
             self.assertEqual(events[-1], b"[DONE]")
+            self.assertEqual(pipeline.generation_config.max_new_tokens, 1280)
             chunks = [json.loads(event) for event in events[:-1]]
             self.assertEqual([chunk["choices"][0]["delta"].get("content") for chunk in chunks],
                              ["Hello", " world", None])
