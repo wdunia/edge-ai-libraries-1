@@ -39,6 +39,13 @@ permissions; do not delete the data. After updating this override on a
 machine with an existing working copy, restart normally (`--clean` is not
 needed).
 
+The demo adds UI packages that are absent from the sample application's
+`package-lock.json`. Its UI image build updates the lockfile inside the
+disposable build stage before running `npm ci`. If an existing working copy
+still uses the old UI Dockerfile (`RUN npm ci || npm install --no-package-lock`),
+run the launcher with `--clean` once to regenerate it; converted models are
+kept.
+
 You will be asked for a Hugging Face token
 ([how to get one](https://huggingface.co/docs/hub/security-tokens)) and a target
 device (`CPU` or `GPU`; NPU is not supported by the sample application).

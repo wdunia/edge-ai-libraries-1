@@ -8,8 +8,8 @@ Backend Dockerfile:
   * ``curl gawk grep`` at runtime - required by the demo metrics collector.
 
 UI Dockerfile:
-  * ``npm ci`` falls back to ``npm install --no-package-lock`` because the demo
-    adds chart/markdown dependencies that are not in the shipped package-lock.
+  * The demo adds chart/markdown dependencies that are not in the shipped
+    package-lock. Update the working copy's lockfile before running ``npm ci``.
 
 All replacements are idempotent.
 """
@@ -62,9 +62,21 @@ def patch_ui(path: Path) -> None:
 
     content = replace_once(
         content,
-        'RUN ["npm", "ci"]',
-        "RUN npm ci || npm install --no-package-lock",
-        "npm ci fallback for demo dependencies",
+        "COPY package*.json /user/app/",
+        "COPY --chown=user:user package*.json /user/app/",
+        "allow the build user to update the working copy lockfile",
+    )
+
+    old_install = (
+        "RUN npm ci || npm install --no-package-lock"
+        if "RUN npm ci || npm install --no-package-lock" in content
+        else 'RUN ["npm", "ci"]'
+    )
+    content = replace_once(
+        content,
+        old_install,
+        "RUN npm install --package-lock-only --ignore-scripts && npm ci",
+        "synchronize lockfile before installing demo dependencies",
     )
 
     path.write_text(content, encoding="utf-8")
@@ -83,4 +95,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
