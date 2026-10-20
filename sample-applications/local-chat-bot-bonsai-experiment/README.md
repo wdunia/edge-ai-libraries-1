@@ -103,11 +103,14 @@ Face `hf` CLI locally in an ignored virtual environment.
    a *separate working copy*, stops its gpt-oss OVMS process, creates an
    embedding-only OVMS config, then starts Bonsai and reconnects ChatQnA.
    This first launch also builds the container image and compiles the model.
-   The Bonsai image installs Intel's OpenCL and Level Zero userspace packages
-   from Intel's signed graphics repository **inside the container only**;
-   it does not install a host GPU driver or a host OpenVINO plugin. The
-   publisher validated a specific compute runtime on B70, so this does not
-   establish compatibility with B390.
+   The Bonsai image installs pinned Intel OpenCL and Level Zero userspace
+   release packages from GitHub, verifying their SHA-256 hashes before
+   installation **inside the container only**; the Intel graphics APT
+   repository may deny access to its package index. This does not install
+   a host GPU driver or a host OpenVINO plugin. The
+   publisher validated compute runtime 26.22 on B70; this container uses
+   official Intel release 26.27, which is not that validated configuration
+   and does not establish compatibility with B390.
 
    ```bash
    unset HF_TOKEN HUGGINGFACEHUB_API_TOKEN
