@@ -158,6 +158,42 @@ class ExperimentTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "Unlisted"):
                     verify_bonsai.verify(root, "bonsai-1bit")
 
+    def test_pinned_repository_readme_is_the_only_manifest_exception(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            files = {
+                verify_bonsai.PLUGIN_FILE: b"plugin",
+                verify_bonsai.RUNTIME_FILES["bonsai-1bit"]: b"runtime",
+                "runtime/install_plugin.py": b"installer",
+                "openvino_language_model.xml": b"model xml",
+                "openvino_language_model.bin": b"model weights",
+                "README.md": b"repository readme",
+            }
+            for name, data in files.items():
+                target = root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(data)
+            lines = [
+                f"{hashlib.sha256(data if name != 'README.md' else b'stale readme').hexdigest()}  ./{name}"
+                for name, data in files.items()
+            ]
+            (root / "CHECKSUMS.sha256").write_text("\n".join(lines) + "\n", encoding="utf-8")
+            with patch.dict(verify_bonsai.MANIFEST_SHA256, {
+                "bonsai-1bit": verify_bonsai.sha256(root / "CHECKSUMS.sha256")
+            }), patch.dict(verify_bonsai.PLUGIN_SHA256, {
+                "bonsai-1bit": hashlib.sha256(b"plugin").hexdigest()
+            }), patch.dict(verify_bonsai.README_SHA256, {
+                "bonsai-1bit": hashlib.sha256(b"repository readme").hexdigest()
+            }):
+                verify_bonsai.verify(root, "bonsai-1bit")
+                (root / "README.md").write_bytes(b"tampered readme")
+                with self.assertRaisesRegex(ValueError, "README.md"):
+                    verify_bonsai.verify(root, "bonsai-1bit")
+                (root / "README.md").write_bytes(b"repository readme")
+                (root / "openvino_language_model.bin").write_bytes(b"tampered weights")
+                with self.assertRaisesRegex(ValueError, "openvino_language_model.bin"):
+                    verify_bonsai.verify(root, "bonsai-1bit")
+
     def test_benchmark_requires_incremental_sse(self):
         class Handler(BaseHTTPRequestHandler):
             def do_POST(self):

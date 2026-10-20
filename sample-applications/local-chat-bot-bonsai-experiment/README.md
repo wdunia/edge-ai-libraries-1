@@ -89,8 +89,13 @@ Face `hf` CLI locally in an ignored virtual environment.
 
    Without Docker, use `python3 verify_bonsai.py models/bonsai-1bit bonsai-1bit`
    and the corresponding command with `models/bonsai-ternary bonsai-ternary`.
-   These checks only establish consistency with **publisher-provided**
-   checksums. They are not an independent security audit of the native plugin.
+   The publisher's pinned `CHECKSUMS.sha256` does not match the `README.md`
+   served at either pinned repository revision. The verifier checks that
+   document against its separately pinned repository hash; it still requires
+   every model file, runtime script and GPU plugin to match the manifest.
+   Any other missing or modified file is a failure: inspect the path reported
+   by the error instead of bypassing verification. These publisher-sourced
+   hashes are not an independent security audit of the native plugin.
 
 4. **Start the 1-bit model and request a real streamed answer.** Run the
    experiment on a disposable Linux machine with GPU drivers, Docker and

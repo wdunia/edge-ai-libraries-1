@@ -21,6 +21,10 @@ PLUGIN_SHA256 = {
     "bonsai-ternary": "fbf51b2fd61df7d3e6229b787ef97963164ae45da7e9509fe629fde2c1829cc3",
 }
 PLUGIN_FILE = "plugin/linux-x86_64/libopenvino_intel_gpu_plugin.so"
+README_SHA256 = {
+    "bonsai-1bit": "eed5415eaac5204384078d2dc7ac53a04406324279aac94e50917f2948bc0c8b",
+    "bonsai-ternary": "b7c9fcd2f2a1ddbae1b7eb90a90a96b0e8d095dd37ba12abe3de1e227bb59aa0",
+}
 
 
 def sha256(path: Path) -> str:
@@ -62,7 +66,10 @@ def verify(model_dir: Path, variant: str) -> None:
             path = path / part
             if path.is_symlink():
                 raise ValueError(f"Symlink in model artifact: {path}")
-        if not path.is_file() or sha256(path) != digest:
+        if not path.is_file():
+            raise ValueError(f"Missing Bonsai file: {path}")
+        expected = README_SHA256[variant] if name == "README.md" else digest
+        if sha256(path) != expected:
             raise ValueError(f"Missing or modified Bonsai file: {path}")
     for path in model_dir.rglob("*"):
         name = path.relative_to(model_dir).as_posix()
@@ -72,7 +79,9 @@ def verify(model_dir: Path, variant: str) -> None:
             raise ValueError(f"Symlink in model artifact: {path}")
         if path.is_file() and name not in entries:
             raise ValueError(f"Unlisted file in Bonsai artifact: {path}")
-    print(f"Verified {len(entries)} files against pinned publisher manifest for {variant}", flush=True)
+    print(f"Verified {len(entries)} files for {variant} against the pinned publisher manifest"
+          + (" (README.md uses the pinned repository hash; its manifest entry is stale)"
+             if "README.md" in entries else ""), flush=True)
 
 
 if __name__ == "__main__":
