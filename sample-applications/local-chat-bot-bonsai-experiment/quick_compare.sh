@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 
 url = os.environ.get("CHATQNA_URL", "http://127.0.0.1:8100").rstrip("/")
 output = Path(os.environ.get("QUICK_RESULTS", "results/quick-comparison.jsonl"))
+max_tokens = 1024
 prompts = [
     ("greeting", "Hi"),
     ("packed_weights", "Answer directly without a thinking section or reasoning. "
@@ -31,7 +32,7 @@ failed = False
 for name, prompt in prompts:
     payload = json.dumps({
         "conversation_messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 256,
+        "max_tokens": max_tokens,
     })
     command = [
         "curl", "-N", "-sS", "--max-time", "1800",
@@ -79,7 +80,7 @@ for name, prompt in prompts:
         error = "ChatQnA returned no visible answer"
     record = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "model": model, "prompt_id": name, "prompt": prompt, "max_tokens": 256,
+        "model": model, "prompt_id": name, "prompt": prompt, "max_tokens": max_tokens,
         "http_status": http_status, "ttft_s": round(first - start, 3) if first else None,
         "total_s": round((completed or end) - start, 3),
         "server_response_ms": server_ms, "fragments": len(fragments),
@@ -99,7 +100,8 @@ print(f"Full answers and measurements: {output}")
 latest = {}
 for line in output.read_text(encoding="utf-8").splitlines():
     row = json.loads(line)
-    latest[(row["model"], row["prompt_id"])] = row
+    if row["max_tokens"] == max_tokens:
+        latest[(row["model"], row["prompt_id"])] = row
 print("Latest saved measurements by model and prompt:")
 for row in latest.values():
     ttft = f"{row['ttft_s']}s" if row["ttft_s"] is not None else "n/a"

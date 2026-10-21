@@ -152,7 +152,12 @@ Face `hf` CLI locally in an ignored virtual environment.
    packed-weights question used by the smoke test, and the 1-to-50 task that
    previously exhausted Bonsai's reasoning-token budget. The last outcome is
    **not guaranteed** to fail again; an error is recorded with its elapsed
-   time rather than treated as a successful answer. This script uses `curl -N`
+   time rather than treated as a successful answer. The script uses
+   `max_tokens=1024` for both models so the 1-to-50 answer can fit; Bonsai
+   reserves up to 1024 additional reasoning tokens internally. Older saved
+   runs with `max_tokens=256` are not directly comparable; compare records
+   with the same token limit; the printed summary excludes older 256-token
+   records. This script uses `curl -N`
    with a 30-minute per-request limit, reads ChatQnA's SSE, and reports time
    to first *visible* fragment, total time, response time reported by the
    application (if completed), HTTP status, fragment count, and any error.

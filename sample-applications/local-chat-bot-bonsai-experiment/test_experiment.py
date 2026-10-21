@@ -225,6 +225,7 @@ class ExperimentTests(unittest.TestCase):
     def test_quick_comparison_records_answers_and_reasoning_failure(self):
         class Handler(BaseHTTPRequestHandler):
             model = "Wondernutts/Bonsai-27B-INTBIT-OpenVINO-Arc"
+            token_limits = []
 
             def do_GET(self):
                 body = json.dumps({"llm_model": self.model}).encode()
@@ -236,6 +237,7 @@ class ExperimentTests(unittest.TestCase):
 
             def do_POST(self):
                 request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                self.token_limits.append(request["max_tokens"])
                 self.send_response(200)
                 self.send_header("Content-Type", "text/event-stream")
                 self.end_headers()
@@ -276,7 +278,9 @@ class ExperimentTests(unittest.TestCase):
                               result.stdout)
                 records = [json.loads(line) for line in output.read_text().splitlines()]
                 self.assertEqual(len(records), 6)
+                self.assertEqual(Handler.token_limits, [1024] * 6)
                 for index in (0, 3):
+                    self.assertEqual(records[index]["max_tokens"], 1024)
                     self.assertEqual(records[index]["answer"], "Hello world")
                     self.assertIsNotNone(records[index]["ttft_s"])
                     self.assertIsNotNone(records[index]["total_s"])
