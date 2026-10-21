@@ -23,6 +23,7 @@ comparison. Integrity verification is not an evaluation of model quality.
 | [`run.sh`](run.sh), [`stop.sh`](stop.sh), [`prepare.py`](prepare.py) | Build the isolated app copy, switch OVMS to embeddings only, start/stop one model |
 | [`server.py`](server.py), [`smoke.py`](smoke.py) | Stream real model responses; require incremental output in a container-local smoke test |
 | [`verify_bonsai.py`](verify_bonsai.py) | Check publisher checksums before any model code is executed |
+| [`quick_compare.sh`](quick_compare.sh) | Three one-shot ChatQnA prompts with curl and SSE timing, including failures |
 | [`benchmark.py`](benchmark.py) | Repeats the demo's exact example prompts against the ChatQnA SSE endpoint |
 | [`test_experiment.py`](test_experiment.py) | Tests that do not require the target GPU |
 | [`.gitignore`](.gitignore) | Excludes downloads, working copies, caches and results |
@@ -142,7 +143,23 @@ Face `hf` CLI locally in an ignored virtual environment.
    or other system files. The publisher's non-streaming example server and
    plugin installer are not used.
 
-5. **Measure answers, then repeat for ternary.** No document upload is
+5. **Quick comparison (one attempt per prompt and model).** With Bonsai
+   running, execute `bash quick_compare.sh`. Stop it, start the unchanged
+   gpt-oss demo, and execute `bash quick_compare.sh` again. Check the printed
+   `/model` value before comparing matching `prompt_id` records in
+   `results/quick-comparison.jsonl`; the script also prints the latest saved
+   measurements side by side. The three prompts are `Hi`, the
+   packed-weights question used by the smoke test, and the 1-to-50 task that
+   previously exhausted Bonsai's reasoning-token budget. The last outcome is
+   **not guaranteed** to fail again; an error is recorded with its elapsed
+   time rather than treated as a successful answer. This script uses `curl -N`
+   with a 30-minute per-request limit, reads ChatQnA's SSE, and reports time
+   to first *visible* fragment, total time, response time reported by the
+   application (if completed), HTTP status, fragment count, and any error.
+   Run only one model at a time. These are three exploratory observations
+   per model, not reliable latency distributions or a quality benchmark.
+
+6. **Optional longer benchmark.** No document upload is
    required. By default, `benchmark.py` reads the same five prompts used by
    the demo's Example prompts control from
    [`../local-chat-bot-demo/tools/prompts.py`](../local-chat-bot-demo/tools/prompts.py):

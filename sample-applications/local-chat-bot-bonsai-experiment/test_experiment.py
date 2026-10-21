@@ -1,9 +1,11 @@
 import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import os
 from pathlib import Path
 from queue import Queue
 import runpy
+import subprocess
 from threading import Thread
 import tempfile
 import time
@@ -219,6 +221,78 @@ class ExperimentTests(unittest.TestCase):
                 (root / "openvino_language_model.bin").write_bytes(b"tampered weights")
                 with self.assertRaisesRegex(ValueError, "openvino_language_model.bin"):
                     verify_bonsai.verify(root, "bonsai-1bit")
+
+    def test_quick_comparison_records_answers_and_reasoning_failure(self):
+        class Handler(BaseHTTPRequestHandler):
+            model = "Wondernutts/Bonsai-27B-INTBIT-OpenVINO-Arc"
+
+            def do_GET(self):
+                body = json.dumps({"llm_model": self.model}).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_POST(self):
+                request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                self.send_response(200)
+                self.send_header("Content-Type", "text/event-stream")
+                self.end_headers()
+                if request["conversation_messages"][0]["content"].startswith("Count from"):
+                    events = ['data: {"error": "Generation stopped inside reasoning"}\n\n']
+                else:
+                    events = ["data: Hello\n\n", "data:  world\n\n",
+                              'data: {"finished": true, "response_time_ms": 25}\n\n']
+                for event in events:
+                    self.wfile.write(event.encode())
+                    self.wfile.flush()
+                self.close_connection = True
+
+            def log_message(self, *args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        worker = Thread(target=server.serve_forever)
+        worker.start()
+        try:
+            script = (Path(__file__).parent / "quick_compare.sh").read_text(encoding="utf-8")
+            code = script.split("python3 - <<'PY'\n", 1)[1].rsplit("\nPY", 1)[0]
+            with tempfile.TemporaryDirectory() as directory:
+                output = Path(directory) / "quick.jsonl"
+                env = {**os.environ, "CHATQNA_URL": f"http://127.0.0.1:{server.server_port}",
+                       "QUICK_RESULTS": str(output)}
+                for model in (Handler.model, "OpenVINO/gpt-oss-20b-int4-ov"):
+                    Handler.model = model
+                    result = subprocess.run(
+                        [os.sys.executable, "-B", "-c", code], env=env,
+                        capture_output=True, text=True, timeout=10,
+                    )
+                    self.assertEqual(result.returncode, 1, result.stderr)
+                    self.assertIn(f"ChatQnA model: {model}", result.stdout)
+                    self.assertIn("reasoning_limit: TTFT=n/a", result.stdout)
+                self.assertIn("OpenVINO/gpt-oss-20b-int4-ov | greeting", result.stdout)
+                self.assertIn("Wondernutts/Bonsai-27B-INTBIT-OpenVINO-Arc | greeting",
+                              result.stdout)
+                records = [json.loads(line) for line in output.read_text().splitlines()]
+                self.assertEqual(len(records), 6)
+                for index in (0, 3):
+                    self.assertEqual(records[index]["answer"], "Hello world")
+                    self.assertIsNotNone(records[index]["ttft_s"])
+                    self.assertIsNotNone(records[index]["total_s"])
+                    self.assertEqual(records[index]["fragments"], 2)
+                    self.assertEqual(records[index]["server_response_ms"], 25)
+                    self.assertTrue(records[index]["incremental"])
+                    self.assertIsNone(records[index]["error"])
+                    self.assertEqual(records[index + 2]["prompt_id"], "reasoning_limit")
+                    self.assertIn("Generation stopped inside reasoning",
+                                  records[index + 2]["error"])
+                    self.assertIsNone(records[index + 2]["ttft_s"])
+                self.assertNotEqual(records[0]["model"], records[3]["model"])
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join()
 
     def test_benchmark_requires_incremental_sse(self):
         class Handler(BaseHTTPRequestHandler):
