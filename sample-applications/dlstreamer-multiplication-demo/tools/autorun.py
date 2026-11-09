@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 import shutil
 import subprocess
 import sys
@@ -21,7 +22,21 @@ def open_browser(url: str) -> bool:
     for name in ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser"):
         browser = shutil.which(name)
         if browser:
-            subprocess.Popen([browser, "--new-window", "--start-maximized", url])
+            cache_dir = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
+            profile_dir = cache_dir / "dlstreamer-multiplication-demo" / "browser-profile"
+            profile_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+            # Keep keyring-independent settings away from the user's personal profile.
+            subprocess.Popen([
+                browser,
+                f"--user-data-dir={profile_dir}",
+                "--password-store=basic",
+                "--incognito",
+                "--no-first-run",
+                "--no-default-browser-check",
+                "--new-window",
+                "--start-maximized",
+                url,
+            ])
             return True
 
     return webbrowser.open(url, new=1)

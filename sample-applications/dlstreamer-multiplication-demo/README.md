@@ -186,6 +186,15 @@ such as `apt`, `dpkg`, and `sudo`.
   (X11) session rather than Wayland. In headless environments the demo skips
   browser automation and prints the UI URL instead of failing.
 
+- Automatic Chrome/Chromium launch uses a separate demo profile under
+  `${XDG_CACHE_HOME:-~/.cache}/dlstreamer-multiplication-demo/browser-profile`,
+  incognito mode, and `--password-store=basic` to avoid asking to unlock the
+  Ubuntu login keyring. This does not change your personal browser profile or
+  disable the system keyring. The basic password store does not provide keyring
+  encryption; keep this profile for the demo only and do not use it for personal
+  accounts. If neither Chrome nor Chromium is installed, the default-browser
+  fallback uses that browser's own profile and keyring settings.
+
 - If `install_dlStreamer.sh` added your user to the `docker` or `video` group,
   log out and back in before starting the demo.
 
