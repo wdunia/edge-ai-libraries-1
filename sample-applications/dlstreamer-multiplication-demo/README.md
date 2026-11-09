@@ -59,6 +59,51 @@ and you can open the UI manually from another machine or session.
 The launcher automatically detects the browser-facing host address and uses it
 for the UI, API, and WebRTC URLs.
 
+### Running without internet
+
+Before disconnecting, run the one-time setup and start the demo once while online
+so that all service images (not only the two locally built images) are cached.
+Keep the model files (`model.xml` and `model.bin`) and sample video
+(`warehouse.avi`) under `microservices/dlstreamer-pipeline-server/resources`.
+
+Then start normally, including after disabling Ethernet and Wi-Fi:
+
+```bash
+./scripts/run_dlStreamer.sh
+```
+
+With no network route, the launcher uses `http://127.0.0.1:8103`. Loopback and
+Docker's internal bridge network must remain enabled; physical network interfaces
+and an internet connection are not required. Use the default `file` source for
+offline playback; a remote RTSP source still needs connectivity to that source.
+
+Startup reuses all cached images, including `latest` tags, and opens an installed
+browser without pip, Selenium, or ChromeDriver downloads. Missing images still
+require an online pull/build. To override address detection (for example on an
+isolated LAN without a default route), run:
+
+```bash
+EXTERNAL_HOST=192.168.1.10 ./scripts/run_dlStreamer.sh
+```
+
+### Automatically start eight GPU pipelines
+
+```bash
+./scripts/run_dlStreamer.sh --start-gpu-pipelines 8
+```
+
+After both services are ready, the launcher creates eight GPU pipelines through
+the demo backend API and waits until all eight report `RUNNING` before opening
+the browser. They appear in the UI automatically. This also works offline with
+cached resources and with `--headless`.
+
+The pipelines use the selected source (`file` by default), model, resolution,
+inference interval, and model-sharing defaults. A working GPU and its host
+drivers are required. Without this option, no pipelines are started automatically.
+Each invocation adds the requested number; with `--no-force-restart`, existing
+pipelines are retained. Creation errors, partial failures, or a startup timeout
+produce a nonzero exit status; already-created pipelines are not removed.
+
 ---
 
 <details>
@@ -90,6 +135,7 @@ This means you normally do **not** need to run `--force-restart` or
 ./scripts/run_dlStreamer.sh --no-open-browser
 ./scripts/run_dlStreamer.sh --headless
 ./scripts/run_dlStreamer.sh --source-mode rtsp
+./scripts/run_dlStreamer.sh --start-gpu-pipelines 8
 ./scripts/run_dlStreamer.sh --compose-down
 ./scripts/run_dlStreamer.sh --no-force-restart
 ./scripts/run_dlStreamer.sh --system-info-text "CPU/GPU/NPU telemetry"
@@ -98,6 +144,7 @@ This means you normally do **not** need to run `--force-restart` or
 - `--no-open-browser` disables automatic browser launch
 - `--headless` skips browser automation explicitly and prints the UI URL
 - `--source-mode file|rtsp` selects the default source in the UI
+- `--start-gpu-pipelines <count>` starts the given positive number of GPU pipelines
 - `--compose-down` runs `docker compose down --remove-orphans` first
 - `--no-force-restart` skips the default restart step
 - `--system-info-text <text>` changes the header text in the UI
@@ -151,4 +198,3 @@ For more details about the underlying pipeline service, see
 `microservices/dlstreamer-pipeline-server/README.md`.
 
 </details>
-

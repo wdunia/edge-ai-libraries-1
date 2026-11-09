@@ -18,6 +18,7 @@ FORCE_RESTART=true
 FORCE_DOWN=false
 AUTO_OPEN_BROWSER=true
 HEADLESS=false
+GPU_PIPELINE_COUNT=0
 SOURCE_MODE="${DLSPS_SOURCE_MODE:-file}"
 DEFAULT_STREAM_URL="${DEFAULT_RTSP_SOURCE_URL:-rtsp://host.docker.internal:8554/camera0}"
 DEFAULT_STREAM_NAME="${DEFAULT_STREAM_NAME:-CAM-01}"
@@ -51,7 +52,7 @@ require_file() {
 
 usage() {
     cat <<EOF
-Usage: ./run_dlStreamer.sh [--force-restart|-f] [--headless] [--open-browser|--no-open-browser] [--source-mode file|rtsp] [--system-info-text text] [--help]
+Usage: ./run_dlStreamer.sh [--force-restart|-f] [--headless] [--open-browser|--no-open-browser] [--source-mode file|rtsp] [--start-gpu-pipelines count] [--system-info-text text] [--help]
 
 Starts the demo stack from prebuilt images. On first run it also generates
 docker/.env and builds the two custom demo images if they are missing.
@@ -64,6 +65,7 @@ Options:
   --open-browser        Force opening the browser after services are up.
   --no-open-browser     Skip opening the browser automatically.
   --source-mode         Default source shown in the UI: file (default) or rtsp.
+  --start-gpu-pipelines Start this many GPU pipelines after services are ready.
   --system-info-text    Header text shown in the GUI (VITE_SYSTEM_INFO).
   --help, -h            Show this help message.
 EOF
@@ -99,6 +101,14 @@ parse_args() {
                     exit 1
                 fi
                 SOURCE_MODE="$1"
+                ;;
+            --start-gpu-pipelines)
+                shift
+                if [[ $# -eq 0 || ! "$1" =~ ^[1-9][0-9]*$ ]]; then
+                    echo "--start-gpu-pipelines requires a positive integer." >&2
+                    exit 1
+                fi
+                GPU_PIPELINE_COUNT="$1"
                 ;;
             --system-info-text)
                 shift
@@ -136,12 +146,16 @@ parse_args() {
 detect_host_address() {
     local detected_host=""
 
-    if [[ -z "$detected_host" ]] && command -v ip >/dev/null 2>&1; then
-        detected_host="$(ip route get 1 2>/dev/null | grep -oP 'src \K[0-9.]+' | head -n 1)"
+    if command -v ip >/dev/null 2>&1; then
+        local route
+        # A disconnected host has no default route; this is not a startup error.
+        if route="$(ip -4 route get 1 2>/dev/null)"; then
+            detected_host="$(awk '{for (i=1; i<NF; i++) if ($i == "src") {print $(i+1); exit}}' <<< "$route")"
+        fi
     fi
 
     if [[ -z "$detected_host" ]]; then
-        detected_host="localhost"
+        detected_host="127.0.0.1"
     fi
 
     printf '%s\n' "$detected_host"
@@ -182,7 +196,7 @@ wait_for_http_200() {
 
     start_ts="$(date +%s)"
     while true; do
-        if curl -fsS "$url" >/dev/null 2>&1; then
+        if curl --noproxy localhost,127.0.0.1 -fsS "$url" >/dev/null 2>&1; then
             return 0
         fi
         if (( $(date +%s) - start_ts >= timeout_seconds )); then
@@ -195,6 +209,15 @@ wait_for_http_200() {
 
 start_services() {
     local compose_cmd=(docker compose --env-file "${DOCKER_ENV_FILE}" -f "${COMPOSE_FILE}")
+    local images image
+
+    images="$("${compose_cmd[@]}" config --images)"
+    while IFS= read -r image; do
+        if ! docker image inspect "${image}" >/dev/null 2>&1; then
+            echo "Missing local image: ${image}. Downloading it requires network access."
+            docker pull "${image}"
+        fi
+    done <<< "$images"
 
     if [[ "$FORCE_DOWN" == "true" ]]; then
         "${compose_cmd[@]}" down --remove-orphans || true
@@ -202,7 +225,8 @@ start_services() {
         "${compose_cmd[@]}" stop || true
     fi
 
-    "${compose_cmd[@]}" up -d
+    # Even the "missing" policy can refresh latest tags; startup must stay local.
+    "${compose_cmd[@]}" up -d --pull never
 }
 
 check_demo_images_present() {
@@ -314,6 +338,19 @@ main() {
     wait_for_http_200 "http://localhost:8888/health" "${MAX_WAIT_SECONDS}" "demo backend"
     wait_for_http_200 "http://localhost:8080/pipelines/status" "${MAX_WAIT_SECONDS}" "pipeline server"
 
+    if [[ "$GPU_PIPELINE_COUNT" != "0" ]]; then
+        echo "Starting ${GPU_PIPELINE_COUNT} GPU pipelines..."
+        python3 "${TOOLS_DIR}/start_gpu_pipelines.py" \
+            --count "${GPU_PIPELINE_COUNT}" \
+            --source "${default_stream_url}" \
+            --model "${MODEL_PATH_IN_CONTAINER}" \
+            --resolution "${DEFAULT_INFERENCE_RESOLUTION}" \
+            --inference-interval "${DEFAULT_INFERENCE_INTERVAL}" \
+            --model-sharing "${DEFAULT_MODEL_SHARING}" \
+            --host "${ip}" \
+            --timeout "${MAX_WAIT_SECONDS}"
+    fi
+
     echo "Demo is up: http://${ip}:${UI_PORT}"
 
     if [[ "$HEADLESS" == "true" ]]; then
@@ -327,12 +364,7 @@ main() {
             return 0
         fi
 
-        cd "${TOOLS_DIR}"
-        python3 -m venv .venv
-        # shellcheck disable=SC1091
-        source .venv/bin/activate
-        pip install -r requirements.txt
-        python3 autorun.py || echo "Skipping automatic browser launch. Open http://${ip}:${UI_PORT} manually if needed."
+        python3 "${TOOLS_DIR}/autorun.py" || echo "Skipping automatic browser launch. Open http://${ip}:${UI_PORT} manually if needed."
     fi
 }
 

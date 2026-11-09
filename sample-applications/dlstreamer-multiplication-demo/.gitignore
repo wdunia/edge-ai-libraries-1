@@ -4,7 +4,7 @@
 docker/.env
 src/ui/react/.env.local
 
-# Python venv used by tools/autorun.py
+# Local Python virtual environments
 tools/.venv/
 
 # Compiled Python bytecode (any depth)
@@ -14,4 +14,3 @@ __pycache__/
 # Build artifacts
 src/ui/react/dist/
 src/ui/react/node_modules/
-
